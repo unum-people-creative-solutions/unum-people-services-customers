@@ -250,5 +250,64 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         expect(window.location.href).toBe("https://crm.unumpeople.com.br/kanban");
       });
     });
+
+    it("não redireciona se restarem outros termos pendentes, redirecionando apenas após aceitar todos", async () => {
+      const mockPending = [
+        {
+          type: "termos_uso",
+          term_id: "term-1",
+          term_name: "Termos de Uso v1",
+          required_version: 1,
+          can_accept: true,
+          document_url: "https://example.com/term-1.html",
+        },
+        {
+          type: "politica_privacidade",
+          term_id: "term-2",
+          term_name: "Política de Privacidade v1",
+          required_version: 1,
+          can_accept: true,
+          document_url: "https://example.com/term-2.html",
+        },
+      ];
+      (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+      (TermsService.accept as any).mockResolvedValue(undefined);
+      (useSearchParams as any).mockReturnValue({
+        get: vi.fn().mockImplementation((key) => {
+          if (key === "return_to") return "https://crm.unumpeople.com.br/kanban";
+          return null;
+        }),
+      });
+
+      render(<TermsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Termos de Uso v1")).toBeInTheDocument();
+        expect(screen.getByText("Política de Privacidade v1")).toBeInTheDocument();
+      });
+
+      const acceptButtons = screen.getAllByRole("button", { name: /aceitar e continuar/i });
+      expect(acceptButtons).toHaveLength(2);
+
+      // Aceita o primeiro termo
+      acceptButtons[0].click();
+
+      // Aguarda o primeiro termo transicionar para aceito
+      await waitFor(() => {
+        expect(screen.getByText(/aceito em/i)).toBeInTheDocument();
+      });
+
+      // O redirecionamento NÃO deve ter ocorrido ainda porque o segundo termo continua pendente
+      expect(window.location.href).toBe("");
+
+      // Aceita o segundo termo
+      const secondAcceptButton = screen.getByRole("button", { name: /aceitar e continuar/i });
+      secondAcceptButton.click();
+
+      // Agora que todos estão aceitos, deve redirecionar
+      await waitFor(() => {
+        expect(window.location.href).toBe("https://crm.unumpeople.com.br/kanban");
+      });
+    });
   });
 });

@@ -113,6 +113,34 @@ describe('AuthGuard', () => {
       });
     });
 
+    it('preserva a query string (incluindo return_to) ao redirecionar para o Hosted UI', async () => {
+      const originalLocation = window.location;
+      delete (window as any).location;
+      window.location = {
+        ...originalLocation,
+        search: '?return_to=https://crm.unumpeople.com.br/kanban',
+      } as any;
+
+      (usePathname as any).mockReturnValue('/termos');
+      (useAuthStore as any).mockReturnValue({
+        isAuthenticated: false,
+        session: null,
+        logout: mockLogout,
+      });
+
+      render(
+        <AuthGuard>
+          <div>Content</div>
+        </AuthGuard>
+      );
+
+      await waitFor(() => {
+        expect(redirectToHostedUI).toHaveBeenCalledWith('/termos?return_to=https://crm.unumpeople.com.br/kanban');
+      });
+
+      (window as any).location = originalLocation;
+    });
+
     it('nunca renderiza children em rota privada sem sessão válida', async () => {
       (useAuthStore as any).mockReturnValue({
         isAuthenticated: false,

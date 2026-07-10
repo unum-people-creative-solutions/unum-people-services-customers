@@ -48,6 +48,16 @@ export default function TermsPage() {
     fetchTerms();
   }, []);
 
+  useEffect(() => {
+    if (!loading) {
+      const hasPending = terms.some((t) => t.status === "pending");
+      const returnTo = searchParams.get("return_to");
+      if (!hasPending && returnTo) {
+        window.location.href = returnTo;
+      }
+    }
+  }, [loading, terms, searchParams]);
+
   const handleAccept = async (item: DisplayTermItem) => {
     try {
       setSubmittingId(item.term_id);

@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import TermsPage from "./page";
 import { TermsService } from "@/services/api";
 import { useSearchParams } from "next/navigation";
@@ -186,5 +186,69 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     screen.getByRole("button", { name: /sair/i }).click();
     expect(logoutFromHostedUI).toHaveBeenCalled();
+  });
+
+  describe("Redirecionamento com return_to", () => {
+    let originalLocation: any;
+
+    beforeEach(() => {
+      originalLocation = window.location;
+      delete (window as any).location;
+      window.location = { href: "" } as any;
+    });
+
+    afterEach(() => {
+      (window as any).location = originalLocation;
+    });
+
+    it("redireciona imediatamente para return_to se a lista de pendências estiver vazia", async () => {
+      (TermsService.getStatus as any).mockResolvedValue({ pending: [] });
+      (useSearchParams as any).mockReturnValue({
+        get: vi.fn().mockImplementation((key) => {
+          if (key === "return_to") return "https://crm.unumpeople.com.br/kanban";
+          return null;
+        }),
+      });
+
+      render(<TermsPage />);
+
+      await waitFor(() => {
+        expect(window.location.href).toBe("https://crm.unumpeople.com.br/kanban");
+      });
+    });
+
+    it("redireciona para return_to após aceitar o último termo pendente", async () => {
+      const mockPending = [
+        {
+          type: "termos_uso",
+          term_id: "term-1",
+          term_name: "Termos de Uso v1",
+          required_version: 1,
+          can_accept: true,
+          document_url: "https://example.com/term-1.html",
+        },
+      ];
+      (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+      (TermsService.accept as any).mockResolvedValue(undefined);
+      (useSearchParams as any).mockReturnValue({
+        get: vi.fn().mockImplementation((key) => {
+          if (key === "return_to") return "https://crm.unumpeople.com.br/kanban";
+          return null;
+        }),
+      });
+
+      render(<TermsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Termos de Uso v1")).toBeInTheDocument();
+      });
+
+      const acceptButton = screen.getByRole("button", { name: /aceitar e continuar/i });
+      acceptButton.click();
+
+      await waitFor(() => {
+        expect(window.location.href).toBe("https://crm.unumpeople.com.br/kanban");
+      });
+    });
   });
 });

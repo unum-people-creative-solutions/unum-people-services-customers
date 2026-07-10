@@ -29,8 +29,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isHydrated) {
       if (!isPublicPath) {
+        const search = typeof window !== 'undefined' ? window.location.search : "";
+        const fullPath = pathname + search;
+
         if (!isAuthenticated || !session?.token) {
-          void redirectToHostedUI(pathname);
+          void redirectToHostedUI(fullPath);
           return;
         }
 
@@ -41,12 +44,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           if (decoded.exp < currentTime) {
             console.warn("Sessão expirada. Redirecionando...");
             logout();
-            void redirectToHostedUI(pathname);
+            void redirectToHostedUI(fullPath);
             return;
           }
         } catch (err) {
           logout();
-          void redirectToHostedUI(pathname);
+          void redirectToHostedUI(fullPath);
           return;
         }
       }

@@ -15,6 +15,10 @@ vi.mock("@/lib/pkce", () => ({
   logoutFromHostedUI: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn().mockReturnValue("/produtos"),
+}));
+
 describe("ProductsPage (TASK-FE-CUST-005)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -34,6 +38,16 @@ describe("ProductsPage (TASK-FE-CUST-005)", () => {
 
     await waitFor(() => {
       expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("exibe mensagem de erro se a busca de dados do tenant falhar", async () => {
+    (TenantService.getMe as any).mockRejectedValue(new Error("Erro de rede"));
+
+    render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Não foi possível carregar as informações da sua conta/i)).toBeInTheDocument();
     });
   });
 

@@ -8,6 +8,7 @@ import { logoutFromHostedUI } from "@/lib/pkce";
 // Mocks
 vi.mock("next/navigation", () => ({
   useSearchParams: vi.fn(),
+  usePathname: vi.fn().mockReturnValue("/termos"),
 }));
 
 vi.mock("@/services/api", () => ({
@@ -172,6 +173,79 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/conflito de versão/i)).toBeInTheDocument();
+    });
+  });
+
+  it("exibe mensagem de erro na tela se a busca inicial de termos falhar", async () => {
+    (TermsService.getStatus as any).mockRejectedValue(new Error("Erro de rede"));
+
+    render(<TermsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Não foi possível carregar a lista de termos/i)).toBeInTheDocument();
+    });
+  });
+
+  it("exibe erro genérico ou mensagem do backend se o aceite falhar por motivo não-409", async () => {
+    const mockPending = [
+      {
+        type: "termos_uso",
+        term_id: "term-1",
+        term_name: "Termos de Uso v1",
+        required_version: 1,
+        can_accept: true,
+        document_url: "https://example.com/term-1.html",
+      },
+    ];
+    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    
+    const err500 = {
+      response: {
+        status: 500,
+        data: { error: "Erro interno do servidor" }
+      }
+    };
+    (TermsService.accept as any).mockRejectedValue(err500);
+
+    render(<TermsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Termos de Uso v1")).toBeInTheDocument();
+    });
+
+    const acceptButton = screen.getByRole("button", { name: /aceitar e continuar/i });
+    acceptButton.click();
+
+    await waitFor(() => {
+      expect(screen.getByText("Erro interno do servidor")).toBeInTheDocument();
+    });
+  });
+
+  it("exibe erro genérico de fallback se o aceite falhar sem resposta do servidor", async () => {
+    const mockPending = [
+      {
+        type: "termos_uso",
+        term_id: "term-1",
+        term_name: "Termos de Uso v1",
+        required_version: 1,
+        can_accept: true,
+        document_url: "https://example.com/term-1.html",
+      },
+    ];
+    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    (TermsService.accept as any).mockRejectedValue(new Error("Network Error"));
+
+    render(<TermsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Termos de Uso v1")).toBeInTheDocument();
+    });
+
+    const acceptButton = screen.getByRole("button", { name: /aceitar e continuar/i });
+    acceptButton.click();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Não foi possível aceitar o termo/i)).toBeInTheDocument();
     });
   });
 

@@ -12,6 +12,8 @@ import {
 } from "@/lib/pkce";
 import { RefreshCw, XCircle } from "lucide-react";
 
+import { getSafeRedirect } from "@/lib/safeRedirect";
+
 function AuthCallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -56,10 +58,10 @@ function AuthCallbackContent() {
 
       setSession(sessionData);
 
-      // Redireciona para /termos ou para return_to se presente
-      const safeReturnTo =
-        returnTo && !["/", "/auth/callback"].includes(returnTo) ? returnTo : "/termos";
-      router.push(safeReturnTo);
+      // Redireciona para /termos ou para return_to se presente e seguro
+      const validatedReturnTo = getSafeRedirect(returnTo, "/termos");
+      const target = ["/", "/auth/callback"].includes(validatedReturnTo) ? "/termos" : validatedReturnTo;
+      router.push(target);
     };
 
     run().catch((err) => {

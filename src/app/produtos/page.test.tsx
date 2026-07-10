@@ -1,0 +1,106 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import { vi, describe, it, expect, beforeEach } from "vitest";
+import ProductsPage from "./page";
+import { TenantService } from "@/services/api";
+import { logoutFromHostedUI } from "@/lib/pkce";
+
+// Mocks
+vi.mock("@/services/api", () => ({
+  TenantService: {
+    getMe: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/pkce", () => ({
+  logoutFromHostedUI: vi.fn(),
+}));
+
+describe("ProductsPage (TASK-FE-CUST-005)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("exibe spinner de carregamento inicialmente e depois carrega os dados", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "https://mysite.com",
+      enabled_services: ["crm"],
+      plan_name: "Premium",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+
+    expect(screen.getByText(/carregando seus produtos/i)).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("renderiza o plano da conta, site_url e habilita serviços corretos", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "https://mybusiness.com.br",
+      enabled_services: ["crm"],
+      plan_name: "Gold Plan",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Plano Ativo: Gold Plan/i)).toBeInTheDocument();
+    });
+
+    // Site Institucional
+    const siteLink = screen.getByRole("link", { name: /visitar site/i });
+    expect(siteLink).toHaveAttribute("href", "https://mybusiness.com.br");
+
+    // CRM habilitado
+    expect(screen.getByRole("link", { name: /acessar crm/i })).toBeInTheDocument();
+
+    // Blog bloqueado
+    expect(screen.getByText(/não incluso neste plano/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /acessar blog/i })).not.toBeInTheDocument();
+  });
+
+  it("exibe selo 'Em produção' se site_url for vazio", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      enabled_services: ["blog"],
+      plan_name: "Standard",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/em produção/i)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /visitar site/i })).not.toBeInTheDocument();
+    });
+
+    // CRM bloqueado
+    expect(screen.getByText(/não incluso neste plano/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /acessar crm/i })).not.toBeInTheDocument();
+
+    // Blog habilitado
+    expect(screen.getByRole("link", { name: /acessar blog/i })).toBeInTheDocument();
+  });
+
+  it("permite fazer logout clicando no botão Sair", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      enabled_services: [],
+      plan_name: "Standard",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /sair/i })).toBeInTheDocument();
+    });
+
+    screen.getByRole("button", { name: /sair/i }).click();
+    expect(logoutFromHostedUI).toHaveBeenCalled();
+  });
+});

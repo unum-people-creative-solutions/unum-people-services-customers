@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import ProductsPage from "./page";
 import { TenantService } from "@/services/api";
 import { logoutFromHostedUI } from "@/lib/pkce";
+import { useTenant } from "@/contexts/TenantContext";
 
 // Mocks
 vi.mock("@/services/api", () => ({
@@ -131,5 +132,51 @@ describe("ProductsPage (TASK-FE-CUST-005)", () => {
 
     screen.getByRole("button", { name: /sair/i }).click();
     expect(logoutFromHostedUI).toHaveBeenCalled();
+  });
+
+  it("T32 (Verifier Fase 3.5, gap 2) — refaz a busca com o novo tenant_id quando o tenant ativo muda (troca via switcher)", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "https://mysite.com",
+      enabled_services: ["crm"],
+      plan_name: "Premium",
+      status: "Ativo",
+    });
+
+    (useTenant as any).mockReturnValue({
+      activeTenantId: "tenant-A",
+      availableTenants: [
+        { id: "tenant-A", nome_negocio: "Empresa A" },
+        { id: "tenant-B", nome_negocio: "Empresa B" },
+      ],
+      isMultiTenant: true,
+      switchTenant: vi.fn(),
+      isLoadingTenants: false,
+    });
+
+    const { rerender } = render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(TenantService.getMe).toHaveBeenCalledWith("tenant-A");
+    });
+    expect(TenantService.getMe).toHaveBeenCalledTimes(1);
+
+    // Simula o usuário trocando de tenant no TenantSwitcher — o hook
+    // useTenant() passa a retornar o novo activeTenantId.
+    (useTenant as any).mockReturnValue({
+      activeTenantId: "tenant-B",
+      availableTenants: [
+        { id: "tenant-A", nome_negocio: "Empresa A" },
+        { id: "tenant-B", nome_negocio: "Empresa B" },
+      ],
+      isMultiTenant: true,
+      switchTenant: vi.fn(),
+      isLoadingTenants: false,
+    });
+    rerender(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(TenantService.getMe).toHaveBeenCalledWith("tenant-B");
+    });
+    expect(TenantService.getMe).toHaveBeenCalledTimes(2);
   });
 });

@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import AppHeader from "./AppHeader";
 import { usePathname } from "next/navigation";
 import { logoutFromHostedUI } from "@/lib/pkce";
+import { useAuthStore } from "@/store/authStore";
 
 // Mocks
 vi.mock("next/navigation", () => ({
@@ -50,5 +51,20 @@ describe("AppHeader", () => {
     logoutButton.click();
 
     expect(logoutFromHostedUI).toHaveBeenCalled();
+  });
+
+  it("deve limpar a sessão local (authStore) ao clicar no botão Sair, evitando que o AuthGuard continue autenticado após o retorno do Hosted UI", () => {
+    useAuthStore.setState({
+      session: { email: "cliente@teste.com", token: "fake-token" },
+      isAuthenticated: true,
+    });
+    (usePathname as any).mockReturnValue("/produtos");
+    render(<AppHeader />);
+
+    const logoutButton = screen.getByRole("button", { name: /sair/i });
+    logoutButton.click();
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(useAuthStore.getState().session).toBeNull();
   });
 });

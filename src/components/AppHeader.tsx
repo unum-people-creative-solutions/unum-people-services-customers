@@ -3,9 +3,16 @@
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { logoutFromHostedUI } from "@/lib/pkce";
+import { useAuthStore } from "@/store/authStore";
 
 export default function AppHeader() {
   const pathname = usePathname();
+  const logout = useAuthStore((state) => state.logout);
+
+  const handleLogout = () => {
+    logout();
+    logoutFromHostedUI();
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-10 shadow-sm">
@@ -38,7 +45,7 @@ export default function AppHeader() {
             </a>
           )}
           <button
-            onClick={() => logoutFromHostedUI()}
+            onClick={handleLogout}
             className="flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 transition"
           >
             <LogOut size={16} />

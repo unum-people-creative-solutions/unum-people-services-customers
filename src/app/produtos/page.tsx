@@ -12,17 +12,19 @@ import {
   Settings
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import { useTenant } from "@/contexts/TenantContext";
 
 export default function ProductsPage() {
+  const { activeTenantId, isLoadingTenants } = useTenant();
   const [tenant, setTenant] = useState<TenantResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTenant = async () => {
+  const fetchTenant = async (tenantId?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await TenantService.getMe();
+      const res = await TenantService.getMe(tenantId);
       setTenant(res);
     } catch (err: any) {
       console.error("Erro ao carregar dados do tenant:", err);
@@ -33,8 +35,10 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
-    fetchTenant();
-  }, []);
+    if (!isLoadingTenants) {
+      fetchTenant(activeTenantId);
+    }
+  }, [isLoadingTenants, activeTenantId]);
 
   if (loading) {
     return (

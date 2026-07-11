@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { logoutFromHostedUI } from "@/lib/pkce";
 import { useAuthStore } from "@/store/authStore";
+import { TenantSwitcher } from "./TenantSwitcher";
 
 export default function AppHeader() {
   const pathname = usePathname();
@@ -28,6 +29,7 @@ export default function AppHeader() {
         </div>
 
         <div className="flex items-center gap-6">
+          <TenantSwitcher />
           {pathname !== "/termos" && (
             <a
               href="/termos"

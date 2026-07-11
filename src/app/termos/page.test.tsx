@@ -22,6 +22,16 @@ vi.mock("@/lib/pkce", () => ({
   logoutFromHostedUI: vi.fn(),
 }));
 
+vi.mock("@/contexts/TenantContext", () => ({
+  useTenant: vi.fn(() => ({
+    activeTenantId: "tenant-123",
+    availableTenants: [{ id: "tenant-123", nome_negocio: "Unum Test" }],
+    isMultiTenant: false,
+    switchTenant: vi.fn(),
+    isLoadingTenants: false,
+  })),
+}));
+
 describe("TermsPage (TASK-FE-CUST-004)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,6 +49,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     await waitFor(() => {
       expect(screen.queryByText(/carregando termos/i)).not.toBeInTheDocument();
+      expect(TermsService.getStatus).toHaveBeenCalledWith("tenant-123");
     });
   });
 
@@ -50,6 +61,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
     await waitFor(() => {
       expect(screen.getByText(/tudo em dia/i)).toBeInTheDocument();
       expect(screen.getByText(/ir para meus produtos/i)).toBeInTheDocument();
+      expect(TermsService.getStatus).toHaveBeenCalledWith("tenant-123");
     });
   });
 
@@ -79,6 +91,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
     await waitFor(() => {
       expect(screen.getByText("Contrato Principal")).toBeInTheDocument();
       expect(screen.getByText("Termos de Uso Gerais")).toBeInTheDocument();
+      expect(TermsService.getStatus).toHaveBeenCalledWith("tenant-123");
     });
 
     const links = screen.getAllByText(/visualizar termo/i);
@@ -107,6 +120,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
     await waitFor(() => {
       expect(screen.getByText("Contrato de Serviço")).toBeInTheDocument();
       expect(screen.getByText(/somente o administrador da conta pode aceitar este termo/i)).toBeInTheDocument();
+      expect(TermsService.getStatus).toHaveBeenCalledWith("tenant-123");
     });
 
     const acceptButton = screen.getByRole("button", { name: /aceitar e continuar/i });
@@ -137,7 +151,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
     acceptButton.click();
 
     await waitFor(() => {
-      expect(TermsService.accept).toHaveBeenCalledWith("termos_uso", 1);
+      expect(TermsService.accept).toHaveBeenCalledWith("termos_uso", 1, "tenant-123");
       expect(screen.getByText(/aceito em/i)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /aceitar e continuar/i })).not.toBeInTheDocument();
     });
@@ -173,6 +187,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/conflito de versão/i)).toBeInTheDocument();
+      expect(TermsService.accept).toHaveBeenCalledWith("termos_uso", 1, "tenant-123");
     });
   });
 
@@ -183,6 +198,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Não foi possível carregar a lista de termos/i)).toBeInTheDocument();
+      expect(TermsService.getStatus).toHaveBeenCalledWith("tenant-123");
     });
   });
 
@@ -218,6 +234,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Erro interno do servidor")).toBeInTheDocument();
+      expect(TermsService.accept).toHaveBeenCalledWith("termos_uso", 1, "tenant-123");
     });
   });
 
@@ -246,6 +263,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Não foi possível aceitar o termo/i)).toBeInTheDocument();
+      expect(TermsService.accept).toHaveBeenCalledWith("termos_uso", 1, "tenant-123");
     });
   });
 
@@ -288,6 +306,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
       await waitFor(() => {
         expect(window.location.href).toBe("https://crm.unumpeople.com.br/kanban");
+        expect(TermsService.getStatus).toHaveBeenCalledWith("tenant-123");
       });
     });
 
@@ -322,6 +341,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
       await waitFor(() => {
         expect(window.location.href).toBe("https://crm.unumpeople.com.br/kanban");
+        expect(TermsService.accept).toHaveBeenCalledWith("termos_uso", 1, "tenant-123");
       });
     });
 
@@ -381,6 +401,8 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
       // Agora que todos estão aceitos, deve redirecionar
       await waitFor(() => {
         expect(window.location.href).toBe("https://crm.unumpeople.com.br/kanban");
+        expect(TermsService.accept).toHaveBeenNthCalledWith(1, "termos_uso", 1, "tenant-123");
+        expect(TermsService.accept).toHaveBeenNthCalledWith(2, "politica_privacidade", 1, "tenant-123");
       });
     });
   });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { TermsService, TermStatusItem } from "@/services/api";
+import { useTenant } from "@/contexts/TenantContext";
 import { 
   FileText, 
   CheckCircle, 
@@ -21,16 +22,17 @@ interface DisplayTermItem extends TermStatusItem {
 
 export default function TermsPage() {
   const searchParams = useSearchParams();
+  const { activeTenantId, isLoadingTenants } = useTenant();
   const [terms, setTerms] = useState<DisplayTermItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTerms = async () => {
+  const fetchTerms = async (tenantId?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await TermsService.getStatus();
+      const res = await TermsService.getStatus(tenantId);
       const displayItems: DisplayTermItem[] = res.pending.map((item) => ({
         ...item,
         status: "pending",
@@ -45,8 +47,10 @@ export default function TermsPage() {
   };
 
   useEffect(() => {
-    fetchTerms();
-  }, []);
+    if (!isLoadingTenants) {
+      fetchTerms(activeTenantId);
+    }
+  }, [isLoadingTenants, activeTenantId]);
 
   useEffect(() => {
     if (!loading) {
@@ -65,7 +69,7 @@ export default function TermsPage() {
     try {
       setSubmittingId(item.term_id);
       setError(null);
-      await TermsService.accept(item.type, item.required_version);
+      await TermsService.accept(item.type, item.required_version, activeTenantId);
       
       // Atualiza o item localmente para "aceito"
       setTerms((prev) =>

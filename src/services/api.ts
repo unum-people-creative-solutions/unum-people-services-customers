@@ -51,18 +51,34 @@ export interface TenantResponse {
 }
 
 export const TermsService = {
-  getStatus: async (): Promise<TermsStatusResponse> => {
-    const response = await api.get('/me/terms/status');
+  getStatus: async (tenantId?: string): Promise<TermsStatusResponse> => {
+    let url = '/me/terms/status';
+    if (tenantId) {
+      url += `?tenant_id=${tenantId}`;
+    }
+    const response = await api.get(url);
     return response.data;
   },
-  accept: async (type: string, version: number): Promise<void> => {
-    await api.post(`/me/terms/${type}/accept`, { version });
+  accept: async (type: string, version: number, tenantId?: string): Promise<void> => {
+    let url = `/me/terms/${type}/accept`;
+    if (tenantId) {
+      url += `?tenant_id=${tenantId}`;
+    }
+    await api.post(url, { version });
   },
 };
 
 export const TenantService = {
-  getMe: async (): Promise<TenantResponse> => {
-    const response = await api.get('/me/tenant');
+  getMe: async (tenantId?: string): Promise<TenantResponse> => {
+    let url = '/me/tenant';
+    if (tenantId) {
+      url += `?tenant_id=${tenantId}`;
+    }
+    const response = await api.get(url);
+    return response.data;
+  },
+  list: async (): Promise<any[]> => {
+    const response = await api.get('/me/tenants');
     return response.data;
   },
 };

@@ -14,6 +14,16 @@ vi.mock("@/lib/pkce", () => ({
   logoutFromHostedUI: vi.fn(),
 }));
 
+vi.mock("@/contexts/TenantContext", () => ({
+  useTenant: vi.fn(() => ({
+    activeTenantId: "tenant-1",
+    availableTenants: [{ id: "tenant-1", nome_negocio: "Tenant Um" }],
+    isMultiTenant: false,
+    switchTenant: vi.fn(),
+    isLoadingTenants: false,
+  })),
+}));
+
 describe("AppHeader", () => {
   beforeEach(() => {
     vi.clearAllMocks();

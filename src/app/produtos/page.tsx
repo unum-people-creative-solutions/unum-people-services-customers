@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
+import { siteHostLabel } from "@/lib/siteHost";
 
 export default function ProductsPage() {
   const { activeTenantId, isLoadingTenants } = useTenant();
@@ -56,6 +57,9 @@ export default function ProductsPage() {
 
   const isCrmEnabled = tenant?.enabled_services?.includes("crm") ?? false;
   const isBlogEnabled = tenant?.enabled_services?.includes("blog") ?? false;
+  const sites = tenant?.site_urls?.length
+    ? tenant.site_urls
+    : (tenant?.site_url ? [tenant.site_url] : []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -114,16 +118,21 @@ export default function ProductsPage() {
             </div>
 
             <div className="mt-6 pt-6 border-t border-gray-100">
-              {tenant?.site_url ? (
-                <a
-                  href={tenant.site_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
-                >
-                  Visitar Site
-                  <ArrowRight size={16} />
-                </a>
+              {sites.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {sites.map((url) => (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
+                    >
+                      {sites.length === 1 ? "Visitar Site" : `Visitar ${siteHostLabel(url)}`}
+                      <ArrowRight size={16} />
+                    </a>
+                  ))}
+                </div>
               ) : (
                 <div className="w-full bg-blue-50 border border-blue-200 text-brand-blue font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs">
                   <span className="w-2 h-2 bg-brand-blue rounded-full animate-ping"></span>

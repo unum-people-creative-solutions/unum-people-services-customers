@@ -44,7 +44,8 @@ export interface TermsStatusResponse {
 }
 
 export interface TenantResponse {
-  site_url: string;
+  site_url: string; // depreciado — fonte da verdade é site_urls
+  site_urls?: string[];
   enabled_services: string[];
   plan_name: string;
   status: string;

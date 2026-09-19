@@ -322,6 +322,28 @@ describe("ProductsPage — link Editar página (RF-5A-28 / CA-5A-21)", () => {
     });
   });
 
+  it("CA-5A-21 (1b) — a base do editor vem de NEXT_PUBLIC_LP_BUILDER_URL quando definida, como CRM e Blog", async () => {
+    vi.stubEnv("NEXT_PUBLIC_LP_BUILDER_URL", "http://localhost:3000");
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      site_urls: ["https://oficina.unumpeople.app"],
+      enabled_services: [],
+      plan_name: "Standard",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+    await waitFor(() => {
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("link", { name: /editar página/i })).toHaveAttribute(
+      "href",
+      "http://localhost:3000/minha-conta/editar?slug=oficina"
+    );
+    vi.unstubAllEnvs();
+  });
+
   it("CA-5A-21 (1) — site em unumpeople.app ganha link Editar página apontando para o editor com o slug do host", async () => {
     (TenantService.getMe as any).mockResolvedValue({
       site_url: "",

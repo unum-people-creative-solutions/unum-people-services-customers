@@ -16,7 +16,6 @@ import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
 
-const LP_EDITOR_URL = "https://unumpeople.app/minha-conta/editar";
 const LP_HOST_SUFFIX = ".unumpeople.app";
 
 // RF-5A-28: sites hospedados em *.unumpeople.app são editáveis no lp-builder;
@@ -27,7 +26,9 @@ function lpEditorUrl(siteUrl: string): string | null {
     if (!hostname.endsWith(LP_HOST_SUFFIX)) return null;
     const slug = hostname.slice(0, -LP_HOST_SUFFIX.length).split(".")[0];
     if (!slug) return null;
-    return `${LP_EDITOR_URL}?slug=${encodeURIComponent(slug)}`;
+    // Mesmo padrão de crmUrl/blogUrl: env com fallback para produção.
+    const base = process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
+    return `${base}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
   } catch {
     return null;
   }

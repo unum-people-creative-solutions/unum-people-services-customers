@@ -9,11 +9,30 @@ import {
   ArrowRight, 
   Lock, 
   RefreshCw,
-  Settings
+  Settings,
+  Pencil
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
+
+const LP_HOST_SUFFIX = ".unumpeople.app";
+
+// RF-5A-28: sites hospedados em *.unumpeople.app são editáveis no lp-builder;
+// o slug é o primeiro rótulo do host. URL inválida ou domínio próprio => sem link.
+function lpEditorUrl(siteUrl: string): string | null {
+  try {
+    const { hostname } = new URL(siteUrl);
+    if (!hostname.endsWith(LP_HOST_SUFFIX)) return null;
+    const slug = hostname.slice(0, -LP_HOST_SUFFIX.length).split(".")[0];
+    if (!slug) return null;
+    // Mesmo padrão de crmUrl/blogUrl: env com fallback para produção.
+    const base = process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
+    return `${base}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
+  } catch {
+    return null;
+  }
+}
 
 export default function ProductsPage() {
   const { activeTenantId, isLoadingTenants } = useTenant();
@@ -120,18 +139,31 @@ export default function ProductsPage() {
             <div className="mt-6 pt-6 border-t border-gray-100">
               {sites.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  {sites.map((url) => (
-                    <a
-                      key={url}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
-                    >
-                      {sites.length === 1 ? "Visitar Site" : `Visitar ${siteHostLabel(url)}`}
-                      <ArrowRight size={16} />
-                    </a>
-                  ))}
+                  {sites.map((url) => {
+                    const editorUrl = lpEditorUrl(url);
+                    return (
+                      <div key={url} className="flex flex-col gap-2">
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
+                        >
+                          {sites.length === 1 ? "Visitar Site" : `Visitar ${siteHostLabel(url)}`}
+                          <ArrowRight size={16} />
+                        </a>
+                        {editorUrl && (
+                          <a
+                            href={editorUrl}
+                            className="w-full bg-blue-50 border border-blue-200 text-brand-blue py-2.5 px-4 rounded-xl font-bold hover:bg-blue-100 transition flex items-center justify-center gap-2 text-sm"
+                          >
+                            <Pencil size={16} />
+                            Editar página
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="w-full bg-blue-50 border border-blue-200 text-brand-blue font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs">

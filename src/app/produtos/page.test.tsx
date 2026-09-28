@@ -309,3 +309,108 @@ describe("ProductsPage — lista de sites (TASK-FE-CUST-002)", () => {
   });
 });
 
+
+describe("ProductsPage — link Editar página (RF-5A-28 / CA-5A-21)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (useTenant as any).mockReturnValue({
+      activeTenantId: "tenant-123",
+      availableTenants: [{ id: "tenant-123", nome_negocio: "Unum Test" }],
+      isMultiTenant: false,
+      switchTenant: vi.fn(),
+      isLoadingTenants: false,
+    });
+  });
+
+  it("CA-5A-21 (1b) — a base do editor vem de NEXT_PUBLIC_LP_BUILDER_URL quando definida, como CRM e Blog", async () => {
+    vi.stubEnv("NEXT_PUBLIC_LP_BUILDER_URL", "http://localhost:3000");
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      site_urls: ["https://oficina.unumpeople.app"],
+      enabled_services: [],
+      plan_name: "Standard",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+    await waitFor(() => {
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("link", { name: /editar página/i })).toHaveAttribute(
+      "href",
+      "http://localhost:3000/minha-conta/editar?slug=oficina"
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("CA-5A-21 (1) — site em unumpeople.app ganha link Editar página apontando para o editor com o slug do host", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      site_urls: ["https://oficina.unumpeople.app"],
+      enabled_services: [],
+      plan_name: "Standard",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+
+    const editLink = screen.getByRole("link", { name: /editar página/i });
+    expect(editLink).toHaveAttribute(
+      "href",
+      "https://unumpeople.app/minha-conta/editar?slug=oficina"
+    );
+    expect(editLink).not.toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: /visitar site/i })).toHaveAttribute(
+      "href",
+      "https://oficina.unumpeople.app"
+    );
+  });
+
+  it("CA-5A-21 (2) — site em domínio próprio não ganha link Editar página", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      site_urls: ["https://www.cliente.com.br"],
+      enabled_services: [],
+      plan_name: "Standard",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("link", { name: /visitar site/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /editar página/i })).toBeNull();
+  });
+
+  it("CA-5A-21 (3) — com um site em unumpeople.app e outro em domínio próprio, há exatamente um link Editar página", async () => {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      site_urls: ["https://www.cliente.com.br", "https://oficina.unumpeople.app"],
+      enabled_services: [],
+      plan_name: "Standard",
+      status: "Ativo",
+    });
+
+    render(<ProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getAllByRole("link", { name: /visitar/i })).toHaveLength(2);
+    const editLinks = screen.getAllByRole("link", { name: /editar página/i });
+    expect(editLinks).toHaveLength(1);
+    expect(editLinks[0]).toHaveAttribute(
+      "href",
+      "https://unumpeople.app/minha-conta/editar?slug=oficina"
+    );
+  });
+});

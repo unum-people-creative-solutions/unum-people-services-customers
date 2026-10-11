@@ -39,4 +39,22 @@ describe("getSafeRedirect", () => {
   it("respeita o valor padrão customizado", () => {
     expect(getSafeRedirect("https://phishing.example.com", "/custom-default")).toBe("/custom-default");
   });
+
+  // RF-07 / CA-08: o navegador trata "\" como "/" e ignora tab/newline dentro da URL.
+  describe.each([
+    ["/\\evil.com", "/termos"],
+    ["//evil.com", "/termos"],
+    ["/\\/evil.com", "/termos"],
+    ["/\t/evil.com", "/termos"],
+    ["/foo\\bar", "/termos"],
+    ["https://evil.com", "/termos"],
+    ["javascript:alert(1)", "/termos"],
+    ["\t//evil.com", "/termos"],
+    [" //evil.com", "/termos"],
+    ["/termos?x=1", "/termos?x=1"],
+  ])("tabela de open redirect", (input, expected) => {
+    it(`getSafeRedirect(${JSON.stringify(input)}) -> ${expected}`, () => {
+      expect(getSafeRedirect(input)).toBe(expected);
+    });
+  });
 });

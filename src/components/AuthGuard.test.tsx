@@ -141,6 +141,36 @@ describe('AuthGuard', () => {
       (window as any).location = originalLocation;
     });
 
+    it('preserva tenant_id junto de return_to ao redirecionar para o Hosted UI', async () => {
+      const originalLocation = window.location;
+      delete (window as any).location;
+      window.location = {
+        ...originalLocation,
+        search: '?return_to=https%3A%2F%2Fcrm.unumpeople.com.br%2Fkanban&tenant_id=t-2',
+      } as any;
+
+      (usePathname as any).mockReturnValue('/termos');
+      (useAuthStore as any).mockReturnValue({
+        isAuthenticated: false,
+        session: null,
+        logout: mockLogout,
+      });
+
+      render(
+        <AuthGuard>
+          <div>Content</div>
+        </AuthGuard>
+      );
+
+      await waitFor(() => {
+        expect(redirectToHostedUI).toHaveBeenCalledWith(
+          '/termos?return_to=https%3A%2F%2Fcrm.unumpeople.com.br%2Fkanban&tenant_id=t-2'
+        );
+      });
+
+      (window as any).location = originalLocation;
+    });
+
     it('nunca renderiza children em rota privada sem sessão válida', async () => {
       (useAuthStore as any).mockReturnValue({
         isAuthenticated: false,

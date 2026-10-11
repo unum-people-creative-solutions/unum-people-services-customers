@@ -22,7 +22,7 @@ interface DisplayTermItem extends TermStatusItem {
 
 export default function TermsPage() {
   const searchParams = useSearchParams();
-  const { activeTenantId, isLoadingTenants } = useTenant();
+  const { activeTenantId, activeTenantName, isLoadingTenants } = useTenant();
   const [terms, setTerms] = useState<DisplayTermItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -213,6 +213,11 @@ export default function TermsPage() {
                       <p className="text-xs text-support-grey mt-1">
                         Versão Requerida: v{item.required_version}
                       </p>
+                      {item.type === "contratacao_servico" && activeTenantName && (
+                        <p className="text-xs text-support-grey mt-1">
+                          {`Empresa: ${activeTenantName}`}
+                        </p>
+                      )}
                     </div>
                   </div>
 

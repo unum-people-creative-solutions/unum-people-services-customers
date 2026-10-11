@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { TenantService } from '@/services/api';
 
@@ -22,6 +23,14 @@ const TenantContext = createContext<TenantContextValue | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session } = useAuthStore();
+  // Tenant pedido pelo app de origem (CRM/blog-admin) em ?tenant_id=. Só vale se
+  // estiver na lista de tenants do usuário; fora dela, a regra atual se mantém.
+  const searchParams = useSearchParams();
+  const requestedTenantId = searchParams?.get('tenant_id') || '';
+  // Cada carga recebe um número; só a mais recente pode mexer no estado. Com
+  // login no meio do caminho, a carga sem tenant pedido (callback) pode terminar
+  // depois da que já leva o tenant_id.
+  const loadSeq = useRef(0);
   const [availableTenants, setAvailableTenants] = useState<Tenant[]>([]);
   const [isLoadingTenants, setIsLoadingTenants] = useState(true);
 
@@ -39,15 +48,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoadingTenants(false);
       return;
     }
+    const seq = ++loadSeq.current;
     setIsLoadingTenants(true);
     try {
       const data = await TenantService.list();
+      if (seq !== loadSeq.current) return;
       const list = data || [];
       setAvailableTenants(list);
 
       // Se já temos um activeTenantId, verifica se ele existe na lista.
       // Se não temos activeTenantId ou ele não existe na lista, escolhemos o primeiro disponível.
       if (list.length > 0) {
+        if (requestedTenantId && list.some((t: Tenant) => t.id === requestedTenantId)) {
+          setActiveTenantId(requestedTenantId);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('active-tenant', requestedTenantId);
+          }
+          return;
+        }
         const hasActiveInList = list.some((t: Tenant) => t.id === activeTenantId);
         if (!activeTenantId || !hasActiveInList) {
           const firstTenant = list[0];
@@ -59,13 +77,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error('Error loading tenants in context:', error);
     } finally {
-      setIsLoadingTenants(false);
+      if (seq === loadSeq.current) setIsLoadingTenants(false);
     }
-  }, [session?.token, activeTenantId]);
+  }, [session?.token, activeTenantId, requestedTenantId]);
 
   useEffect(() => {
     loadTenants();
-  }, [session?.token]); // Dispara no mount ou quando o token mudar
+  }, [session?.token, requestedTenantId]); // Dispara no mount, quando o token mudar ou quando a URL pedir outro tenant
 
   const switchTenant = useCallback((id: string) => {
     setActiveTenantId(id);

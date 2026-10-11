@@ -112,6 +112,19 @@ describe('AuthCallbackPage (TASK-FE-CUST-003)', () => {
     });
   });
 
+  it('mantém return_to e tenant_id da rota pretendida ao concluir o login no meio do caminho', async () => {
+    const intended = '/termos?return_to=https%3A%2F%2Fcrm.unumpeople.com.br%2Fkanban&tenant_id=t-2';
+    window.sessionStorage.setItem('pkce_code_verifier', 'verifier-123');
+    window.sessionStorage.setItem('auth_return_to', intended);
+    (useSearchParams as any).mockReturnValue(makeSearchParams('auth-code-123'));
+
+    render(<AuthCallbackPage />);
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(intended);
+    });
+  });
+
   it('falha na troca de código mostra erro e não chama setSession', async () => {
     window.sessionStorage.setItem('pkce_code_verifier', 'verifier-123');
     (useSearchParams as any).mockReturnValue(makeSearchParams('auth-code-123'));

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
@@ -24,7 +25,10 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={`${poppins.className} ${poppins.variable}`}>
         <AuthGuard>
-          <TenantProvider>{children}</TenantProvider>
+          {/* TenantProvider lê ?tenant_id= via useSearchParams, que exige Suspense. */}
+          <Suspense fallback={null}>
+            <TenantProvider>{children}</TenantProvider>
+          </Suspense>
         </AuthGuard>
       </body>
     </html>

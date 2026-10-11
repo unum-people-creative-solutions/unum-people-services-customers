@@ -49,6 +49,9 @@ describe("getSafeRedirect", () => {
     ["/foo\\bar", "/termos"],
     ["https://evil.com", "/termos"],
     ["javascript:alert(1)", "/termos"],
+    // Host do próprio domínio, mas protocolo perigoso: só a checagem de protocolo barra.
+    ["javascript://unumpeople.com.br/%0aalert(1)", "/termos"],
+    ["data://unumpeople.com.br/x", "/termos"],
     ["\t//evil.com", "/termos"],
     [" //evil.com", "/termos"],
     ["/termos?x=1", "/termos?x=1"],

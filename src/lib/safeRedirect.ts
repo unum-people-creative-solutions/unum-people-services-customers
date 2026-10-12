@@ -1,9 +1,14 @@
 export function getSafeRedirect(url: string | null | undefined, defaultValue: string = "/termos"): string {
   if (!url) return defaultValue;
 
-  // Paths relativos começando com "/" (impedindo "//" para evitar redirecionamento oculto)
-  if (url.startsWith("/") && !url.startsWith("//")) {
-    return url;
+  // Paths relativos: uma única "/" inicial. O navegador trata "\" como "/" e descarta
+  // tab/newline dentro da URL, então "/\evil.com" ou "/\t/evil.com" viram "//evil.com".
+  // Por isso qualquer "\" ou caractere de controle/espaço recusa o valor.
+  if (url.startsWith("/")) {
+    if (!url.startsWith("//") && !/[\\\u0000-\u0020\u007f]/.test(url)) {
+      return url;
+    }
+    return defaultValue;
   }
 
   // URLs absolutas com protocolo http ou https

@@ -4,6 +4,7 @@ import TermsPage from "./page";
 import { TermsService } from "@/services/api";
 import { useSearchParams } from "next/navigation";
 import { logoutFromHostedUI } from "@/lib/pkce";
+import { useTenant } from "@/contexts/TenantContext";
 
 // Mocks
 vi.mock("next/navigation", () => ({
@@ -278,6 +279,67 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     screen.getByRole("button", { name: /sair/i }).click();
     expect(logoutFromHostedUI).toHaveBeenCalled();
+  });
+
+  describe("Empresa do tenant ativo no termo de contratação (RF-03 / CA-03)", () => {
+    const defaultTenantImpl = vi.mocked(useTenant).getMockImplementation();
+
+    beforeEach(() => {
+      vi.mocked(useTenant).mockImplementation(() => ({
+        activeTenantId: "t-2",
+        activeTenantName: "Clínica Dois",
+        availableTenants: [
+          { id: "t-1", nome_negocio: "Clínica Um" },
+          { id: "t-2", nome_negocio: "Clínica Dois" },
+        ],
+        isMultiTenant: true,
+        switchTenant: vi.fn(),
+        isLoadingTenants: false,
+      }));
+    });
+
+    afterEach(() => {
+      vi.mocked(useTenant).mockImplementation(defaultTenantImpl!);
+    });
+
+    it("mostra 'Empresa: <nome_negocio>' no item contratacao_servico", async () => {
+      (TermsService.getStatus as any).mockResolvedValue({
+        pending: [
+          {
+            type: "contratacao_servico",
+            term_id: "term-1",
+            term_name: "Contrato Principal",
+            required_version: 2,
+            can_accept: true,
+            document_url: "https://example.com/term-1.html",
+          },
+        ],
+      });
+
+      render(<TermsPage />);
+
+      expect(await screen.findByText("Empresa: Clínica Dois")).toBeInTheDocument();
+    });
+
+    it("não mostra a empresa nos termos por usuário (termos_uso)", async () => {
+      (TermsService.getStatus as any).mockResolvedValue({
+        pending: [
+          {
+            type: "termos_uso",
+            term_id: "term-2",
+            term_name: "Termos de Uso",
+            required_version: 1,
+            can_accept: true,
+            document_url: "https://example.com/term-2.html",
+          },
+        ],
+      });
+
+      render(<TermsPage />);
+
+      await screen.findByText("Termos de Uso", { selector: "h3" });
+      expect(screen.queryByText("Empresa: Clínica Dois")).not.toBeInTheDocument();
+    });
   });
 
   describe("Redirecionamento com return_to", () => {

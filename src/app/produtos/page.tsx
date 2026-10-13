@@ -15,6 +15,7 @@ import {
 import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
+import SubscriptionCancel from "@/components/SubscriptionCancel";
 
 const LP_HOST_SUFFIX = ".unumpeople.app";
 
@@ -255,6 +256,11 @@ export default function ProductsPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* portal-cancelamento RF-C2: cancelamento e arrependimento da assinatura */}
+        <div className="mt-8">
+          <SubscriptionCancel tenantId={activeTenantId} />
         </div>
       </main>
     </div>

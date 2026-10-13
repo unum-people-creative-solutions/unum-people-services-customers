@@ -85,3 +85,53 @@ export const TenantService = {
 };
 
 export default api;
+
+// portal-cancelamento RF-C1: contrato de GET/POST /me/cancellation (API RF-B8).
+export type CancellationKind = 'arrependimento' | 'fim_de_periodo' | 'imediato' | 'sem_cobranca';
+export type CancellationReason = '' | 'not_admin' | 'plan_livre' | 'already_cancelled' | 'already_scheduled';
+// AWAITING_SETTLEMENT: cartão ainda não liquidado; o estorno é refeito na liquidação (RF-E2/E3).
+export type RefundStatus = 'REQUESTED' | 'IN_PROGRESS' | 'AWAITING_SETTLEMENT' | 'DONE' | 'FAILED';
+
+export interface CancellationPreview {
+  can_cancel: boolean;
+  reason: CancellationReason;
+  kind: CancellationKind | '';
+  effective_at: string; // AAAA-MM-DD
+  refund: { value: number; billing_type: string } | null;
+  refund_deadline: string; // AAAA-MM-DD, vazio fora do prazo de 7 dias
+  refund_status?: RefundStatus;
+  purge_days: number;
+  scheduled: { cancel_at: string; requested_at: string } | null;
+}
+
+export type CancellationRequestResult =
+  | { status: 'done'; preview: CancellationPreview }
+  // O prazo mudou entre a prévia e o clique: a API não agiu e devolveu a prévia nova.
+  | { status: 'kind_changed'; preview: CancellationPreview };
+
+export const CancellationService = {
+  getPreview: async (tenantId?: string): Promise<CancellationPreview> => {
+    let url = '/me/cancellation';
+    if (tenantId) {
+      url += `?tenant_id=${tenantId}`;
+    }
+    const response = await api.get(url);
+    return response.data;
+  },
+  request: async (kind: CancellationKind, tenantId?: string): Promise<CancellationRequestResult> => {
+    let url = '/me/cancellation';
+    if (tenantId) {
+      url += `?tenant_id=${tenantId}`;
+    }
+    try {
+      const response = await api.post(url, { kind });
+      return { status: 'done', preview: response.data };
+    } catch (err: any) {
+      const data = err?.response?.data;
+      if (err?.response?.status === 409 && data?.error === 'cancellation_kind_changed' && data?.preview) {
+        return { status: 'kind_changed', preview: data.preview };
+      }
+      throw err;
+    }
+  },
+};

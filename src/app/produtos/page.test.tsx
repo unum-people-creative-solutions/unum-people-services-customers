@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import ProductsPage from "./page";
-import { TenantService } from "@/services/api";
+import { TenantService, CancellationService } from "@/services/api";
 import { logoutFromHostedUI } from "@/lib/pkce";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -9,6 +9,10 @@ import { useTenant } from "@/contexts/TenantContext";
 vi.mock("@/services/api", () => ({
   TenantService: {
     getMe: vi.fn(),
+  },
+  CancellationService: {
+    getPreview: vi.fn().mockResolvedValue({ can_cancel: false, reason: "plan_livre", kind: "", effective_at: "", refund: null, refund_deadline: "", purge_days: 30, scheduled: null }),
+    request: vi.fn(),
   },
 }));
 
@@ -412,5 +416,21 @@ describe("ProductsPage — link Editar página (RF-5A-28 / CA-5A-21)", () => {
       "href",
       "https://unumpeople.app/minha-conta/editar?slug=oficina"
     );
+  });
+
+  // portal-cancelamento RF-C2: o bloco "Assinatura" fica na página de produtos,
+  // ligado ao tenant ativo.
+  it("mostra o bloco Assinatura com o botão de cancelar do tenant ativo", async () => {
+    (TenantService.getMe as any).mockResolvedValue({ site_url: "", enabled_services: [], plan_name: "Captação", status: "ATIVO" });
+    (CancellationService.getPreview as any).mockResolvedValueOnce({
+      can_cancel: true, reason: "", kind: "fim_de_periodo", effective_at: "2026-11-10", refund: null,
+      refund_deadline: "", purge_days: 30, scheduled: null,
+    });
+
+    render(<ProductsPage />);
+
+    expect(await screen.findByRole("heading", { name: "Assinatura" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancelar assinatura" })).toBeInTheDocument();
+    expect(CancellationService.getPreview).toHaveBeenCalledWith("tenant-123");
   });
 });

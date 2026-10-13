@@ -39,6 +39,8 @@ describe('cancellationCopy', () => {
   it('status da devolução', () => {
     expect(refundStatusText('REQUESTED', 129.9)).toBe('Assinatura cancelada. Devolução de R$ 129,90 em andamento.');
     expect(refundStatusText('IN_PROGRESS', 129.9)).toBe('Assinatura cancelada. Devolução de R$ 129,90 em andamento.');
+    // portal-cancelamento RF-E5: cartão aguardando a liquidação aparece como em andamento.
+    expect(refundStatusText('AWAITING_SETTLEMENT', 129.9)).toBe('Assinatura cancelada. Devolução de R$ 129,90 em andamento.');
     expect(refundStatusText('DONE', 129.9)).toBe('Assinatura cancelada. Devolução de R$ 129,90 concluída.');
     expect(refundStatusText('FAILED', 129.9)).toBe(
       'Assinatura cancelada. A devolução de R$ 129,90 está com a nossa equipe e será concluída em até 2 dias úteis.',

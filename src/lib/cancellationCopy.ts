@@ -41,6 +41,7 @@ export function refundStatusText(
   switch (status) {
     case 'REQUESTED':
     case 'IN_PROGRESS':
+    case 'AWAITING_SETTLEMENT':
       return `Assinatura cancelada. Devolução de ${formattedValue} em andamento.`;
     case 'DONE':
       return `Assinatura cancelada. Devolução de ${formattedValue} concluída.`;

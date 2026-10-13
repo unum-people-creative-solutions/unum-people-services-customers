@@ -89,7 +89,8 @@ export default api;
 // portal-cancelamento RF-C1: contrato de GET/POST /me/cancellation (API RF-B8).
 export type CancellationKind = 'arrependimento' | 'fim_de_periodo' | 'imediato' | 'sem_cobranca';
 export type CancellationReason = '' | 'not_admin' | 'plan_livre' | 'already_cancelled' | 'already_scheduled';
-export type RefundStatus = 'REQUESTED' | 'IN_PROGRESS' | 'DONE' | 'FAILED';
+// AWAITING_SETTLEMENT: cartão ainda não liquidado; o estorno é refeito na liquidação (RF-E2/E3).
+export type RefundStatus = 'REQUESTED' | 'IN_PROGRESS' | 'AWAITING_SETTLEMENT' | 'DONE' | 'FAILED';
 
 export interface CancellationPreview {
   can_cancel: boolean;

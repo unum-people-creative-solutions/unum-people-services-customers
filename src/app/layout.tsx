@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   title: "Portal do Cliente | Unum People",
   description: "Gerencie seus termos e produtos",
   // Portal só para clientes logados: nada aqui deve ir para o Google. Quem não
-  // está logado é mandado para o login do Cognito (auth.unumpeople.com.br), e era
-  // por esse caminho que o Google indexava a página vazia de login.
+  // está logado é mandado para o login do Cognito (auth.unumpeople.com.br), um
+  // dos caminhos pelos quais o Google indexava a página vazia de login.
   robots: { index: false, follow: false },
 };
 

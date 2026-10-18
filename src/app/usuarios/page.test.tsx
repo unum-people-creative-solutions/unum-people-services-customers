@@ -156,6 +156,50 @@ describe('Página Usuários', () => {
     expect(screen.queryByText('Edu Prado')).not.toBeInTheDocument();
   });
 
+  it('o contador continua o da API, sem somar o convidado pendente', async () => {
+    servico.convidar.mockResolvedValue(edu);
+    render(<UsuariosPage />);
+    await screen.findByRole('table');
+    await convidarEdu();
+    expect(await screen.findByText('Edu Prado')).toBeInTheDocument();
+    expect(screen.getByText('3 de 5 usuários do seu plano')).toBeInTheDocument();
+  });
+
+  // Verifier da 1b, G1: remover um convidado ainda pendente não deixa linha fantasma.
+  it('remover o convidado pendente tira a linha da tela', async () => {
+    servico.convidar.mockResolvedValue(edu);
+    servico.remover.mockResolvedValue(undefined);
+    render(<UsuariosPage />);
+    await screen.findByRole('table');
+    await convidarEdu();
+    await screen.findByText('Edu Prado');
+    await userEvent.click(screen.getByRole('button', { name: 'Remover Edu Prado' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Remover Edu Prado?' })).getByRole('button', { name: 'Remover' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Edu Prado não tem mais acesso'));
+    await waitFor(() => expect(servico.listar).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText('Edu Prado')).not.toBeInTheDocument();
+  });
+
+  // Verifier da 1b, G2: o convite que termina depois da troca de empresa não aparece na outra.
+  it('convite que responde depois da troca de empresa não entra na lista da nova empresa', async () => {
+    let responder: (u: typeof edu) => void = () => {};
+    servico.convidar.mockReturnValue(new Promise((r) => { responder = r; }));
+    const { rerender } = render(<UsuariosPage />);
+    await screen.findByRole('table');
+    await userEvent.click(screen.getByRole('button', { name: 'Convidar pessoa' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Convidar pessoa' });
+    await userEvent.type(within(dialogo).getByLabelText('Nome'), 'Edu Prado');
+    await userEvent.type(within(dialogo).getByLabelText('E-mail'), 'edu@loja.com');
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Enviar convite' }));
+    tenant.activeTenantId = 't-2';
+    rerender(<UsuariosPage />);
+    responder(edu);
+    await waitFor(() => expect(servico.listar).toHaveBeenLastCalledWith('t-2'));
+    await screen.findByRole('table');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByText('Edu Prado')).not.toBeInTheDocument();
+  });
+
   it('editar a própria conta: Portal desabilitado', async () => {
     render(<UsuariosPage />);
     await screen.findByRole('table');

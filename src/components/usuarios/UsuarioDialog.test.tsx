@@ -37,6 +37,11 @@ describe('UsuarioDialog — convidar', () => {
     expect(screen.getByText('A pessoa recebe um e-mail com uma senha temporária para entrar.')).toBeInTheDocument();
   });
 
+  it('abre com o foco no campo Nome', () => {
+    convidar();
+    expect(screen.getByLabelText('Nome')).toHaveFocus();
+  });
+
   it('o botão desabilitado diz o motivo', async () => {
     convidar();
     expect(enviar()).toBeDisabled();
@@ -172,7 +177,8 @@ describe('UsuarioDialog — editar', () => {
     editar(ana, true);
     expect(screen.getByLabelText('Portal do Cliente')).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'Bloquear o acesso a esta empresa' })).toBeDisabled();
-    expect(screen.getAllByText('Você não pode mudar o seu próprio acesso ao Portal nem se bloquear.').length).toBeGreaterThan(0);
+    // O motivo aparece uma vez só, e não repetido no bloqueio e no Portal.
+    expect(screen.getAllByText('Você não pode mudar o seu próprio acesso ao Portal nem se bloquear.')).toHaveLength(1);
     await userEvent.selectOptions(screen.getByLabelText('CRM'), 'vendedor');
     await userEvent.click(salvar());
     expect(servico.atualizar).toHaveBeenCalledWith('ana@loja.com', { acessos: { crm: 'vendedor' } }, 't-1');

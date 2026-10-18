@@ -1,7 +1,7 @@
 'use client';
 
 // gestao-de-acesso-f3-portal-cliente RF-18: convidar e editar uma pessoa da empresa.
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import Modal from '@/components/Modal';
 import AcessosPorFerramenta from '@/components/usuarios/AcessosPorFerramenta';
@@ -88,6 +88,7 @@ export default function UsuarioDialog({
   const idNome = useId();
   const idEmail = useId();
   const idMotivo = useId();
+  const nomeRef = useRef<HTMLInputElement>(null);
   const iniciais = modo === 'editar' && usuario ? acessosDeEdicao(usuario, papeis) : acessosDeConvite(papeis);
   const [nome, setNome] = useState(usuario?.nome ?? '');
   const [email, setEmail] = useState('');
@@ -158,6 +159,7 @@ export default function UsuarioDialog({
       titulo={titulo}
       onFechar={onFechar}
       fecharBloqueado={enviando}
+      focoInicialRef={nomeRef}
       rodape={
         <>
           {motivo ? (
@@ -187,6 +189,13 @@ export default function UsuarioDialog({
       }
     >
       <div className="space-y-4">
+        {ehVoce ? (
+          <p className="flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+            <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{TEXTO_PROPRIO}</span>
+          </p>
+        ) : null}
+
         {alerta ? (
           <div role="alert" className="bg-red-50 border-l-4 border-red-500 text-sm text-red-700 p-3 rounded-r-lg">
             {alerta}
@@ -198,6 +207,7 @@ export default function UsuarioDialog({
             Nome
           </label>
           <input
+            ref={nomeRef}
             id={idNome}
             value={nome}
             onChange={(event) => setNome(event.target.value)}
@@ -239,7 +249,6 @@ export default function UsuarioDialog({
               Bloquear o acesso a esta empresa
             </label>
             <p className="text-sm text-gray-600">A pessoa continua na lista, mas não entra até você desbloquear.</p>
-            {ehVoce ? <p className="text-sm text-gray-600">{TEXTO_PROPRIO}</p> : null}
           </div>
         )}
 
@@ -248,7 +257,6 @@ export default function UsuarioDialog({
           valor={acessos}
           onChange={setAcessos}
           portalBloqueado={ehVoce}
-          motivoPortalBloqueado={ehVoce ? TEXTO_PROPRIO : undefined}
         />
       </div>
     </Modal>

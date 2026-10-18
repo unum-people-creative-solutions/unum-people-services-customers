@@ -60,7 +60,7 @@ export default function AcessosPorFerramenta({
               value={portal ? (valor.portal ?? '') : escolhido}
               disabled={portal && portalBloqueado}
               onChange={(event) => onChange({ ...valor, [ferramenta.id]: event.target.value })}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-gray-100"
             >
               {portal ? null : (
                 <option value="">Automático ({nomeDoPapel(ferramenta, papelImplicito(ferramenta, valor.portal ?? ''))})</option>

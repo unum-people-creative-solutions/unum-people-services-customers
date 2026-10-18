@@ -87,7 +87,7 @@ function PapelNaFerramenta({ usuario, ferramenta }: { usuario: UsuarioDaEmpresa;
   }
   return (
     <>
-      {nome}<sup aria-hidden="true">¹</sup><span className="sr-only">acesso completo por ser administrador</span>
+      {nome}<span aria-hidden="true">¹</span><span className="sr-only">acesso completo por ser administrador</span>
     </>
   );
 }

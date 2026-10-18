@@ -24,6 +24,26 @@ type DialogoAberto =
 
 const ID_AVISO_LIMITE = 'aviso-limite-usuarios';
 
+function mesmoEmail(a: string, b: string) {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+// Convidado guardado com a empresa em que foi convidado (Verifier da 1b, G2).
+type Pendente = { tenantId: string; usuario: UsuarioDaEmpresa };
+
+/** Pendentes da empresa cujo e-mail a lista ainda não trouxe (gestao-de-acesso-f1b RF-04). */
+function pendentesAindaForaDaLista(
+  pendentes: Pendente[],
+  usuarios: UsuarioDaEmpresa[],
+  tenantId: string,
+): Pendente[] {
+  return pendentes.filter(
+    (pendente) =>
+      pendente.tenantId === tenantId &&
+      !usuarios.some((usuario) => mesmoEmail(usuario.email, pendente.usuario.email)),
+  );
+}
+
 export default function UsuariosPage() {
   const { activeTenantId, activeTenantName, isLoadingTenants } = useTenant();
   const emailLogado = useAuthStore((s) => s.session?.email ?? '');
@@ -34,6 +54,8 @@ export default function UsuariosPage() {
   const [tentativa, setTentativa] = useState(0);
   const [dialogo, setDialogo] = useState<DialogoAberto | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // gestao-de-acesso-f1b RF-04: convidados ainda não vistos no índice eventualmente consistente.
+  const [pendentes, setPendentes] = useState<Pendente[]>([]);
   const seqRef = useRef(0);
 
   const [tenantVisto, setTenantVisto] = useState(activeTenantId);
@@ -43,6 +65,12 @@ export default function UsuariosPage() {
     setPapeis(null);
     setErro(null);
     setDialogo(null);
+    setPendentes([]);
+  } else if (lista !== null) {
+    const restantes = pendentesAindaForaDaLista(pendentes, lista.usuarios, activeTenantId);
+    if (restantes.length !== pendentes.length) {
+      setPendentes(restantes);
+    }
   }
 
   useEffect(() => {
@@ -85,6 +113,19 @@ export default function UsuariosPage() {
     setDialogo(null);
   }
 
+  // A empresa vai fixada quando a caixa abre: um convite que responde depois da
+  // troca de empresa fica guardado na empresa certa.
+  const aoConcluirNa = (tenantId: string) => (mensagem: string, convidado?: UsuarioDaEmpresa) => {
+    if (convidado) {
+      setPendentes((atuais) =>
+        atuais.some((p) => p.tenantId === tenantId && mesmoEmail(p.usuario.email, convidado.email))
+          ? atuais
+          : [...atuais, { tenantId, usuario: convidado }],
+      );
+    }
+    aoConcluir(mensagem);
+  };
+
   function aoConcluir(mensagem: string) {
     setDialogo(null);
     setAviso(mensagem);
@@ -95,6 +136,14 @@ export default function UsuariosPage() {
   const nomeDaEmpresa = activeTenantName || 'a empresa';
   const noLimite =
     lista !== null && lista.limite.maximo !== null && lista.limite.em_uso >= lista.limite.maximo;
+  // Lista da API primeiro; pendentes só enquanto o índice não os trouxer. O contador segue lista.limite.
+  const usuariosExibidos =
+    lista === null
+      ? []
+      : [
+          ...lista.usuarios,
+          ...pendentesAindaForaDaLista(pendentes, lista.usuarios, activeTenantId).map((p) => p.usuario),
+        ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -164,7 +213,7 @@ export default function UsuariosPage() {
             </div>
 
             <ListaDeUsuarios
-              usuarios={lista.usuarios}
+              usuarios={usuariosExibidos}
               papeis={papeis}
               emailLogado={emailLogado}
               nomeDaEmpresa={nomeDaEmpresa}
@@ -179,7 +228,7 @@ export default function UsuariosPage() {
                 tenantId={activeTenantId}
                 maximo={lista.limite.maximo}
                 onFechar={fecharDialogo}
-                onSalvo={aoConcluir}
+                onSalvo={aoConcluirNa(activeTenantId)}
               />
             ) : null}
 
@@ -193,7 +242,7 @@ export default function UsuariosPage() {
                 tenantId={activeTenantId}
                 maximo={lista.limite.maximo}
                 onFechar={fecharDialogo}
-                onSalvo={aoConcluir}
+                onSalvo={aoConcluirNa(activeTenantId)}
               />
             ) : null}
 
@@ -203,7 +252,12 @@ export default function UsuariosPage() {
                 nomeDaEmpresa={nomeDaEmpresa}
                 tenantId={activeTenantId}
                 onFechar={fecharDialogo}
-                onRemovido={aoConcluir}
+                onRemovido={(mensagem) => {
+                  // Quem ainda estava pendente sai da tela junto (Verifier da 1b, G1).
+                  const removido = dialogo.usuario.email;
+                  setPendentes((atuais) => atuais.filter((p) => !mesmoEmail(p.usuario.email, removido)));
+                  aoConcluir(mensagem);
+                }}
               />
             ) : null}
           </>

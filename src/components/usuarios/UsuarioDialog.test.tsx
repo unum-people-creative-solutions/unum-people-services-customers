@@ -61,7 +61,8 @@ describe('UsuarioDialog — convidar', () => {
     await userEvent.type(screen.getByLabelText('E-mail'), ' bia@loja.com ');
     await userEvent.click(enviar());
     expect(servico.convidar).toHaveBeenCalledWith({ email: 'bia@loja.com', nome: 'Bia Lima', acessos: { portal: 'membro' } }, 't-1');
-    expect(onSalvo).toHaveBeenCalledWith('Convite enviado para bia@loja.com.');
+    // gestao-de-acesso-f1b RF-04: o convidado devolvido pela API vai junto.
+    expect(onSalvo).toHaveBeenCalledWith('Convite enviado para bia@loja.com.', bia);
   });
 
   it('papel escolhido no CRM vai no convite', async () => {

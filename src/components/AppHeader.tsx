@@ -4,11 +4,15 @@ import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { logoutFromHostedUI } from "@/lib/pkce";
 import { useAuthStore } from "@/store/authStore";
+import { useTenant } from "@/contexts/TenantContext";
+import { useMeusAcessos } from "@/hooks/useMeusAcessos";
 import { TenantSwitcher } from "./TenantSwitcher";
 
 export default function AppHeader() {
   const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
+  const { activeTenantId } = useTenant();
+  const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
 
   const handleLogout = () => {
     logout();
@@ -28,7 +32,7 @@ export default function AppHeader() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2">
           <TenantSwitcher />
           {pathname !== "/termos" && (
             <a
@@ -44,6 +48,14 @@ export default function AppHeader() {
               className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition"
             >
               Meus Produtos
+            </a>
+          )}
+          {podeGerirUsuarios && pathname !== "/usuarios" && (
+            <a
+              href="/usuarios"
+              className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition"
+            >
+              Usuários
             </a>
           )}
           <button

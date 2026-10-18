@@ -14,6 +14,11 @@ vi.mock("@/lib/pkce", () => ({
   logoutFromHostedUI: vi.fn(),
 }));
 
+// O link Usuários tem teste próprio (AppHeader.usuarios.test.tsx); aqui, sem rede.
+vi.mock("@/hooks/useMeusAcessos", () => ({
+  useMeusAcessos: vi.fn(() => ({ podeGerirUsuarios: false, carregando: false, erro: false })),
+}));
+
 vi.mock("@/contexts/TenantContext", () => ({
   useTenant: vi.fn(() => ({
     activeTenantId: "tenant-1",

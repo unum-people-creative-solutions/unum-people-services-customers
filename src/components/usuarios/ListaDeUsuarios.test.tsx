@@ -38,6 +38,13 @@ describe('ListaDeUsuarios — tela larga', () => {
     ]);
   });
 
+  // Verifier da fase 3, G3: o e-mail da sessão pode vir com outras maiúsculas.
+  it('a pessoa logada é reconhecida sem diferenciar maiúsculas', () => {
+    lista([bia, ana], 'ANA@Loja.com');
+    expect(screen.getAllByRole('row')[1]).toHaveTextContent('Ana Souza (você)');
+    expect(screen.queryByRole('button', { name: 'Remover Ana Souza' })).not.toBeInTheDocument();
+  });
+
   it('papéis pelo nome; implícito de administrador marcado com ¹ e nota de rodapé', () => {
     lista([ana, bia, caio]);
     const [linhaAna, linhaBia, linhaCaio] = screen.getAllByRole('row').slice(1);

@@ -111,6 +111,51 @@ describe('Página Usuários', () => {
     await waitFor(() => expect(servico.listar).toHaveBeenCalledTimes(2));
   });
 
+  // gestao-de-acesso-f1b RF-04, CA-04: a lista lê um índice eventualmente
+  // consistente; o convidado não pode sumir logo depois do aviso.
+  const edu = { ...listaDaLoja.usuarios[0], email: 'edu@loja.com', nome: 'Edu Prado' };
+
+  async function convidarEdu() {
+    await userEvent.click(screen.getByRole('button', { name: 'Convidar pessoa' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Convidar pessoa' });
+    await userEvent.type(within(dialogo).getByLabelText('Nome'), 'Edu Prado');
+    await userEvent.type(within(dialogo).getByLabelText('E-mail'), 'edu@loja.com');
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Enviar convite' }));
+    await screen.findByRole('status');
+  }
+
+  it('convidado aparece mesmo se a lista recarregada ainda não o traz', async () => {
+    servico.convidar.mockResolvedValue(edu);
+    render(<UsuariosPage />);
+    await screen.findByRole('table');
+    await convidarEdu();
+    await waitFor(() => expect(servico.listar).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Edu Prado')).toBeInTheDocument();
+  });
+
+  it('quando a lista já traz o convidado, ele aparece uma vez só', async () => {
+    servico.convidar.mockResolvedValue(edu);
+    servico.listar.mockResolvedValueOnce(listaDaLoja).mockResolvedValue({ ...listaDaLoja, usuarios: [...listaDaLoja.usuarios, edu] });
+    render(<UsuariosPage />);
+    await screen.findByRole('table');
+    await convidarEdu();
+    await waitFor(() => expect(servico.listar).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getAllByText('Edu Prado')).toHaveLength(1));
+  });
+
+  it('trocar de empresa descarta o convidado pendente', async () => {
+    servico.convidar.mockResolvedValue(edu);
+    const { rerender } = render(<UsuariosPage />);
+    await screen.findByRole('table');
+    await convidarEdu();
+    expect(await screen.findByText('Edu Prado')).toBeInTheDocument();
+    tenant.activeTenantId = 't-2';
+    rerender(<UsuariosPage />);
+    await waitFor(() => expect(servico.listar).toHaveBeenLastCalledWith('t-2'));
+    await screen.findByRole('table');
+    expect(screen.queryByText('Edu Prado')).not.toBeInTheDocument();
+  });
+
   it('editar a própria conta: Portal desabilitado', async () => {
     render(<UsuariosPage />);
     await screen.findByRole('table');

@@ -24,6 +24,20 @@ type DialogoAberto =
 
 const ID_AVISO_LIMITE = 'aviso-limite-usuarios';
 
+function mesmoEmail(a: string, b: string) {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/** Pendentes cujo e-mail a lista ainda não trouxe (gestao-de-acesso-f1b RF-04). */
+function pendentesAindaForaDaLista(
+  pendentes: UsuarioDaEmpresa[],
+  usuarios: UsuarioDaEmpresa[],
+): UsuarioDaEmpresa[] {
+  return pendentes.filter(
+    (pendente) => !usuarios.some((usuario) => mesmoEmail(usuario.email, pendente.email)),
+  );
+}
+
 export default function UsuariosPage() {
   const { activeTenantId, activeTenantName, isLoadingTenants } = useTenant();
   const emailLogado = useAuthStore((s) => s.session?.email ?? '');
@@ -34,6 +48,8 @@ export default function UsuariosPage() {
   const [tentativa, setTentativa] = useState(0);
   const [dialogo, setDialogo] = useState<DialogoAberto | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // gestao-de-acesso-f1b RF-04: convidados ainda não vistos no índice eventualmente consistente.
+  const [pendentes, setPendentes] = useState<UsuarioDaEmpresa[]>([]);
   const seqRef = useRef(0);
 
   const [tenantVisto, setTenantVisto] = useState(activeTenantId);
@@ -43,6 +59,12 @@ export default function UsuariosPage() {
     setPapeis(null);
     setErro(null);
     setDialogo(null);
+    setPendentes([]);
+  } else if (lista !== null) {
+    const restantes = pendentesAindaForaDaLista(pendentes, lista.usuarios);
+    if (restantes.length !== pendentes.length) {
+      setPendentes(restantes);
+    }
   }
 
   useEffect(() => {
@@ -85,9 +107,14 @@ export default function UsuariosPage() {
     setDialogo(null);
   }
 
-  function aoConcluir(mensagem: string) {
+  function aoConcluir(mensagem: string, convidado?: UsuarioDaEmpresa) {
     setDialogo(null);
     setAviso(mensagem);
+    if (convidado) {
+      setPendentes((atuais) =>
+        atuais.some((p) => mesmoEmail(p.email, convidado.email)) ? atuais : [...atuais, convidado],
+      );
+    }
     // Recarrega pela mesma carga do efeito; a lista atual fica na tela até a nova chegar.
     setTentativa((n) => n + 1);
   }
@@ -95,6 +122,11 @@ export default function UsuariosPage() {
   const nomeDaEmpresa = activeTenantName || 'a empresa';
   const noLimite =
     lista !== null && lista.limite.maximo !== null && lista.limite.em_uso >= lista.limite.maximo;
+  // Lista da API primeiro; pendentes só enquanto o índice não os trouxer. O contador segue lista.limite.
+  const usuariosExibidos =
+    lista === null
+      ? []
+      : [...lista.usuarios, ...pendentesAindaForaDaLista(pendentes, lista.usuarios)];
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -164,7 +196,7 @@ export default function UsuariosPage() {
             </div>
 
             <ListaDeUsuarios
-              usuarios={lista.usuarios}
+              usuarios={usuariosExibidos}
               papeis={papeis}
               emailLogado={emailLogado}
               nomeDaEmpresa={nomeDaEmpresa}

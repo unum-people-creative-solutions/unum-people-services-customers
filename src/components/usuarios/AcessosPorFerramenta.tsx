@@ -10,6 +10,8 @@ type AcessosPorFerramentaProps = {
   onChange: (v: Record<string, string>) => void;
   portalBloqueado?: boolean;
   motivoPortalBloqueado?: string;
+  // id de um aviso fora do componente que explica o Portal bloqueado (aria-describedby).
+  idDoMotivoPortal?: string;
 };
 
 function nomeDoPapel(ferramenta: FerramentaComPapeis, id: string): string {
@@ -35,6 +37,7 @@ export default function AcessosPorFerramenta({
   onChange,
   portalBloqueado = false,
   motivoPortalBloqueado,
+  idDoMotivoPortal,
 }: AcessosPorFerramentaProps) {
   const baseId = useId();
   const visiveis = papeis.ferramentas.filter((f) => f.id === 'portal' || f.contratada);
@@ -56,7 +59,7 @@ export default function AcessosPorFerramenta({
             </label>
             <select
               id={id}
-              aria-describedby={idDescricao}
+              aria-describedby={portal && portalBloqueado && idDoMotivoPortal ? `${idDescricao} ${idDoMotivoPortal}` : idDescricao}
               value={portal ? (valor.portal ?? '') : escolhido}
               disabled={portal && portalBloqueado}
               onChange={(event) => onChange({ ...valor, [ferramenta.id]: event.target.value })}

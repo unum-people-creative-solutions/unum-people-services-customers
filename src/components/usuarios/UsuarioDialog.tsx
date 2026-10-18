@@ -89,6 +89,7 @@ export default function UsuarioDialog({
   const idEmail = useId();
   const idMotivo = useId();
   const nomeRef = useRef<HTMLInputElement>(null);
+  const idProprio = useId();
   const iniciais = modo === 'editar' && usuario ? acessosDeEdicao(usuario, papeis) : acessosDeConvite(papeis);
   const [nome, setNome] = useState(usuario?.nome ?? '');
   const [email, setEmail] = useState('');
@@ -192,7 +193,7 @@ export default function UsuarioDialog({
         {ehVoce ? (
           <p className="flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
             <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <span>{TEXTO_PROPRIO}</span>
+            <span id={idProprio}>{TEXTO_PROPRIO}</span>
           </p>
         ) : null}
 
@@ -244,6 +245,7 @@ export default function UsuarioDialog({
                 type="checkbox"
                 checked={bloqueado}
                 disabled={ehVoce}
+                aria-describedby={ehVoce ? idProprio : undefined}
                 onChange={(event) => setBloqueado(event.target.checked)}
               />
               Bloquear o acesso a esta empresa
@@ -257,6 +259,7 @@ export default function UsuarioDialog({
           valor={acessos}
           onChange={setAcessos}
           portalBloqueado={ehVoce}
+          idDoMotivoPortal={ehVoce ? idProprio : undefined}
         />
       </div>
     </Modal>

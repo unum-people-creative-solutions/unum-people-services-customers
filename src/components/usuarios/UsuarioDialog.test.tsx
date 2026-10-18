@@ -179,6 +179,13 @@ describe('UsuarioDialog — editar', () => {
     expect(screen.getByRole('checkbox', { name: 'Bloquear o acesso a esta empresa' })).toBeDisabled();
     // O motivo aparece uma vez só, e não repetido no bloqueio e no Portal.
     expect(screen.getAllByText('Você não pode mudar o seu próprio acesso ao Portal nem se bloquear.')).toHaveLength(1);
+    // Verifier da fase 3, G4: os dois controles desabilitados apontam para o motivo.
+    expect(screen.getByRole('checkbox', { name: 'Bloquear o acesso a esta empresa' })).toHaveAccessibleDescription(
+      expect.stringContaining('Você não pode mudar o seu próprio acesso ao Portal nem se bloquear.'),
+    );
+    expect(screen.getByLabelText('Portal do Cliente')).toHaveAccessibleDescription(
+      expect.stringContaining('Você não pode mudar o seu próprio acesso ao Portal nem se bloquear.'),
+    );
     await userEvent.selectOptions(screen.getByLabelText('CRM'), 'vendedor');
     await userEvent.click(salvar());
     expect(servico.atualizar).toHaveBeenCalledWith('ana@loja.com', { acessos: { crm: 'vendedor' } }, 't-1');

@@ -29,7 +29,7 @@ type UsuarioDialogProps = {
   tenantId: string;
   maximo: number | null;
   onFechar: () => void;
-  onSalvo: (mensagem: string) => void;
+  onSalvo: (mensagem: string, convidado?: UsuarioDaEmpresa) => void;
 };
 
 function acessosDeConvite(papeis: PapeisDaEmpresa): Record<string, string> {
@@ -134,8 +134,9 @@ export default function UsuarioDialog({
           for (const [id, valor] of Object.entries(acessos)) {
             if (id !== 'portal' && valor !== '') escolhidos[id] = valor;
           }
-          await UsuariosService.convidar({ email: emailTrim, nome: nomeTrim, acessos: escolhidos }, tenantId);
-          onSalvo(`Convite enviado para ${emailTrim}.`);
+          // gestao-de-acesso-f1b RF-04: a página mostra o convidado até a lista o trazer.
+          const convidado = await UsuariosService.convidar({ email: emailTrim, nome: nomeTrim, acessos: escolhidos }, tenantId);
+          onSalvo(`Convite enviado para ${emailTrim}.`, convidado);
         } else if (usuario) {
           const mudanca: MudancaDeUsuario = {};
           if (nomeMudou) mudanca.nome = nomeTrim;

@@ -9,6 +9,8 @@ import {
 } from 'react';
 import {
   CancellationService,
+  MENSAGEM_SEM_PERMISSAO,
+  ehRecusaPorPermissao,
   type CancellationPreview,
 } from '@/services/api';
 import {
@@ -43,7 +45,7 @@ export default function SubscriptionCancel({
   const [loadError, setLoadError] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [kindChanged, setKindChanged] = useState(false);
 
   useEffect(() => {
@@ -85,7 +87,7 @@ export default function SubscriptionCancel({
     if (!preview) return;
 
     setDialogPreview(preview);
-    setSubmitError(false);
+    setSubmitError(null);
     setKindChanged(false);
     setDialogOpen(true);
   }
@@ -95,7 +97,7 @@ export default function SubscriptionCancel({
 
     setDialogOpen(false);
     setDialogPreview(null);
-    setSubmitError(false);
+    setSubmitError(null);
     setKindChanged(false);
   }
 
@@ -135,7 +137,7 @@ export default function SubscriptionCancel({
     if (!dialogPreview?.kind || submitting) return;
 
     setSubmitting(true);
-    setSubmitError(false);
+    setSubmitError(null);
 
     try {
       const result = await CancellationService.request(
@@ -154,8 +156,12 @@ export default function SubscriptionCancel({
       setDialogOpen(false);
       setDialogPreview(null);
       setKindChanged(false);
-    } catch {
-      setSubmitError(true);
+    } catch (err) {
+      setSubmitError(
+        ehRecusaPorPermissao(err)
+          ? MENSAGEM_SEM_PERMISSAO
+          : 'Não foi possível cancelar agora. Nada foi alterado. Tente de novo em alguns minutos.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -256,8 +262,7 @@ export default function SubscriptionCancel({
 
             {submitError ? (
               <p role="alert" className="mt-4 text-sm font-semibold text-red-700">
-                Não foi possível cancelar agora. Nada foi alterado. Tente de
-                novo em alguns minutos.
+                {submitError}
               </p>
             ) : null}
 

@@ -12,12 +12,16 @@ vi.mock("next/navigation", () => ({
   usePathname: vi.fn().mockReturnValue("/termos"),
 }));
 
-vi.mock("@/services/api", () => ({
-  TermsService: {
-    getStatus: vi.fn(),
-    accept: vi.fn(),
-  },
-}));
+vi.mock("@/services/api", async () => {
+  const real = await vi.importActual<typeof import("@/services/api")>("@/services/api");
+  return {
+    ...real,
+    TermsService: {
+      getStatus: vi.fn(),
+      accept: vi.fn(),
+    },
+  };
+});
 
 vi.mock("@/lib/pkce", () => ({
   logoutFromHostedUI: vi.fn(),

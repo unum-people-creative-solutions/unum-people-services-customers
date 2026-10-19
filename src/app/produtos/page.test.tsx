@@ -95,7 +95,7 @@ describe("ProductsPage (TASK-FE-CUST-005)", () => {
       expect(TenantService.getMe).toHaveBeenCalledWith("tenant-123");
     });
 
-    // Site Institucional
+    // Site personalizado
     const siteLink = screen.getByRole("link", { name: /visitar site/i });
     expect(siteLink).toHaveAttribute("href", "https://mybusiness.com.br");
 
@@ -107,7 +107,7 @@ describe("ProductsPage (TASK-FE-CUST-005)", () => {
     expect(screen.queryByRole("link", { name: /acessar blog/i })).not.toBeInTheDocument();
   });
 
-  it("exibe selo 'Em produção' se site_url for vazio", async () => {
+  it("sem site personalizado, o card do site não aparece (não existe mais o selo Em produção)", async () => {
     (TenantService.getMe as any).mockResolvedValue({
       site_url: "",
       enabled_services: ["blog"],
@@ -118,7 +118,8 @@ describe("ProductsPage (TASK-FE-CUST-005)", () => {
     render(<ProductsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/em produção/i)).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Site personalizado" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/em produção/i)).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /visitar site/i })).not.toBeInTheDocument();
       expect(TenantService.getMe).toHaveBeenCalledWith("tenant-123");
     });
@@ -235,7 +236,7 @@ describe("ProductsPage — lista de sites (TASK-FE-CUST-002)", () => {
     expect(linkBeta).toHaveAttribute("rel", "noopener noreferrer");
     expect(linkAlpha.getAttribute("href")).not.toBe(linkBeta.getAttribute("href"));
 
-    expect(screen.getAllByRole("heading", { name: /site institucional/i })).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { name: /site personalizado/i })).toHaveLength(1);
     expect(screen.getByRole("heading", { name: /crm unum/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /blog admin/i })).toBeInTheDocument();
   });
@@ -262,7 +263,7 @@ describe("ProductsPage — lista de sites (TASK-FE-CUST-002)", () => {
     expect(screen.getAllByRole("link", { name: /visitar site/i })).toHaveLength(1);
   });
 
-  it("T18 — lista vazia e tenant legado com site_url vazio mostram o selo Em produção", async () => {
+  it("T18 — lista vazia e tenant legado com site_url vazio não mostram o card do site", async () => {
     (TenantService.getMe as any).mockResolvedValue({
       site_url: "",
       site_urls: [],
@@ -274,7 +275,8 @@ describe("ProductsPage — lista de sites (TASK-FE-CUST-002)", () => {
     const { unmount } = render(<ProductsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/em produção/i)).toBeInTheDocument();
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Site personalizado" })).not.toBeInTheDocument();
     });
     expect(screen.queryByRole("link", { name: /visitar site/i })).not.toBeInTheDocument();
 
@@ -290,7 +292,8 @@ describe("ProductsPage — lista de sites (TASK-FE-CUST-002)", () => {
     render(<ProductsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/em produção/i)).toBeInTheDocument();
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Site personalizado" })).not.toBeInTheDocument();
     });
     expect(screen.queryByRole("link", { name: /visitar site/i })).not.toBeInTheDocument();
   });
@@ -325,124 +328,5 @@ describe("ProductsPage — lista de sites (TASK-FE-CUST-002)", () => {
   });
 });
 
-
-describe("ProductsPage — link Editar página (RF-5A-28 / CA-5A-21)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (useTenant as any).mockReturnValue({
-      activeTenantId: "tenant-123",
-      availableTenants: [{ id: "tenant-123", nome_negocio: "Unum Test" }],
-      isMultiTenant: false,
-      switchTenant: vi.fn(),
-      isLoadingTenants: false,
-    });
-  });
-
-  it("CA-5A-21 (1b) — a base do editor vem de NEXT_PUBLIC_LP_BUILDER_URL quando definida, como CRM e Blog", async () => {
-    vi.stubEnv("NEXT_PUBLIC_LP_BUILDER_URL", "http://localhost:3000");
-    (TenantService.getMe as any).mockResolvedValue({
-      site_url: "",
-      site_urls: ["https://oficina.unumpeople.app"],
-      enabled_services: [],
-      plan_name: "Standard",
-      status: "Ativo",
-    });
-
-    render(<ProductsPage />);
-    await waitFor(() => {
-      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
-    });
-
-    expect(screen.getByRole("link", { name: /editar página/i })).toHaveAttribute(
-      "href",
-      "http://localhost:3000/minha-conta/editar?slug=oficina"
-    );
-    vi.unstubAllEnvs();
-  });
-
-  it("CA-5A-21 (1) — site em unumpeople.app ganha link Editar página apontando para o editor com o slug do host", async () => {
-    (TenantService.getMe as any).mockResolvedValue({
-      site_url: "",
-      site_urls: ["https://oficina.unumpeople.app"],
-      enabled_services: [],
-      plan_name: "Standard",
-      status: "Ativo",
-    });
-
-    render(<ProductsPage />);
-
-    await waitFor(() => {
-      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
-    });
-
-    const editLink = screen.getByRole("link", { name: /editar página/i });
-    expect(editLink).toHaveAttribute(
-      "href",
-      "https://unumpeople.app/minha-conta/editar?slug=oficina"
-    );
-    expect(editLink).not.toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("link", { name: /visitar site/i })).toHaveAttribute(
-      "href",
-      "https://oficina.unumpeople.app"
-    );
-  });
-
-  it("CA-5A-21 (2) — site em domínio próprio não ganha link Editar página", async () => {
-    (TenantService.getMe as any).mockResolvedValue({
-      site_url: "",
-      site_urls: ["https://www.cliente.com.br"],
-      enabled_services: [],
-      plan_name: "Standard",
-      status: "Ativo",
-    });
-
-    render(<ProductsPage />);
-
-    await waitFor(() => {
-      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
-    });
-
-    expect(screen.getByRole("link", { name: /visitar site/i })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /editar página/i })).toBeNull();
-  });
-
-  it("CA-5A-21 (3) — com um site em unumpeople.app e outro em domínio próprio, há exatamente um link Editar página", async () => {
-    (TenantService.getMe as any).mockResolvedValue({
-      site_url: "",
-      site_urls: ["https://www.cliente.com.br", "https://oficina.unumpeople.app"],
-      enabled_services: [],
-      plan_name: "Standard",
-      status: "Ativo",
-    });
-
-    render(<ProductsPage />);
-
-    await waitFor(() => {
-      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
-    });
-
-    expect(screen.getAllByRole("link", { name: /visitar/i })).toHaveLength(2);
-    const editLinks = screen.getAllByRole("link", { name: /editar página/i });
-    expect(editLinks).toHaveLength(1);
-    expect(editLinks[0]).toHaveAttribute(
-      "href",
-      "https://unumpeople.app/minha-conta/editar?slug=oficina"
-    );
-  });
-
-  // portal-cancelamento RF-C2: o bloco "Assinatura" fica na página de produtos,
-  // ligado ao tenant ativo.
-  it("mostra o bloco Assinatura com o botão de cancelar do tenant ativo", async () => {
-    (TenantService.getMe as any).mockResolvedValue({ site_url: "", enabled_services: [], plan_name: "Captação", status: "ATIVO" });
-    (CancellationService.getPreview as any).mockResolvedValueOnce({
-      can_cancel: true, reason: "", kind: "fim_de_periodo", effective_at: "2026-11-10", refund: null,
-      refund_deadline: "", purge_days: 30, scheduled: null,
-    });
-
-    render(<ProductsPage />);
-
-    expect(await screen.findByRole("heading", { name: "Assinatura" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cancelar assinatura" })).toBeInTheDocument();
-    expect(CancellationService.getPreview).toHaveBeenCalledWith("tenant-123");
-  });
-});
+// O link Editar página (RF-5A-28 / CA-5A-21) passou a vir das páginas do
+// configurador (GET /me/tenant "paginas"), não de site_urls: page.cards.test.tsx.

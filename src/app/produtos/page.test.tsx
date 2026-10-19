@@ -10,6 +10,18 @@ vi.mock("@/services/api", () => ({
   TenantService: {
     getMe: vi.fn(),
   },
+  // Administrador do Portal: acesso a todas as ferramentas (gestao-de-acesso-f4 RF-08).
+  AcessosService: {
+    get: vi.fn(() => Promise.resolve({
+      tenant_id: "tenant-123",
+      operador: false,
+      ferramentas: [
+        { id: "crm", nome: "CRM", contratada: true, papel: { id: "gestor", nome: "Gestor", sistema: true, implicito: true }, permissoes: ["crm.lead.ver"] },
+        { id: "blog", nome: "Blog", contratada: true, papel: { id: "editor", nome: "Editor", sistema: true, implicito: true }, permissoes: ["blog.post.ver"] },
+        { id: "lp", nome: "Páginas", contratada: true, papel: { id: "administrador", nome: "Administrador", sistema: true, implicito: true }, permissoes: ["lp.pagina.ver", "lp.rascunho.editar"] },
+      ],
+    })),
+  },
   CancellationService: {
     getPreview: vi.fn().mockResolvedValue({ can_cancel: false, reason: "plan_livre", kind: "", effective_at: "", refund: null, refund_deadline: "", purge_days: 30, scheduled: null }),
     request: vi.fn(),

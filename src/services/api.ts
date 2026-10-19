@@ -84,6 +84,39 @@ export const TenantService = {
   },
 };
 
+export interface PapelResumo {
+  id: string;
+  nome: string;
+  sistema: boolean;
+  implicito: boolean;
+}
+
+export interface AcessoFerramenta {
+  id: string;
+  nome: string;
+  contratada: boolean;
+  papel: PapelResumo | null;
+  permissoes: string[];
+}
+
+export interface MeusAcessos {
+  tenant_id: string;
+  operador: boolean;
+  ferramentas: AcessoFerramenta[];
+}
+
+// RF-08: permissões da empresa ativa. O id vai codificado (# vira %23).
+export const AcessosService = {
+  get: async (tenantId?: string): Promise<MeusAcessos> => {
+    let url = '/me/acessos';
+    if (tenantId) {
+      url += `?tenant_id=${encodeURIComponent(tenantId)}`;
+    }
+    const response = await api.get(url);
+    return response.data;
+  },
+};
+
 export default api;
 
 // portal-cancelamento RF-C1: contrato de GET/POST /me/cancellation (API RF-B8).

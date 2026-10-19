@@ -144,12 +144,31 @@ describe("Meus Produtos segue o papel de cada ferramenta", () => {
     vi.mocked(useTenant).mockReturnValue(tenantDe("A") as any);
     const { rerender } = render(<ProductsPage />);
     await screen.findByRole("link", { name: /Visitar Site/i });
+    // A carrega com acesso ao CRM antes da troca: nada disso pode valer enquanto B carrega.
+    await act(async () => { responderA(acessos(TODAS)); });
+    expect(await screen.findByRole("link", { name: /Acessar CRM/ })).toBeInTheDocument();
     vi.mocked(useTenant).mockReturnValue(tenantDe("B") as any);
     rerender(<ProductsPage />);
     await waitFor(() => expect(AcessosService.get).toHaveBeenLastCalledWith("B"));
     expect(screen.queryByRole("link", { name: /Acessar CRM/ })).not.toBeInTheDocument();
     await act(async () => { responderB(acessos({ ...TODAS, crm: [] })); });
     expect(within(cardDe("CRM Unum")).getByText("Sem acesso nesta empresa")).toBeInTheDocument();
+  });
+
+  it("troca de empresa: a resposta atrasada da empresa anterior é ignorada", async () => {
+    const tenantDe = (id: string) => ({ activeTenantId: id, availableTenants: [{ id, nome_negocio: id }], isMultiTenant: true, switchTenant: vi.fn(), isLoadingTenants: false });
+    let responderA: (v: MeusAcessos) => void = () => {};
+    let responderB: (v: MeusAcessos) => void = () => {};
+    vi.mocked(AcessosService.get).mockImplementation((id?: string) =>
+      new Promise<MeusAcessos>((r) => { if (id === "A") responderA = r; else responderB = r; }),
+    );
+    vi.mocked(useTenant).mockReturnValue(tenantDe("A") as any);
+    const { rerender } = render(<ProductsPage />);
+    await screen.findByRole("link", { name: /Visitar Site/i });
+    vi.mocked(useTenant).mockReturnValue(tenantDe("B") as any);
+    rerender(<ProductsPage />);
+    await waitFor(() => expect(AcessosService.get).toHaveBeenLastCalledWith("B"));
+    await act(async () => { responderB(acessos({ ...TODAS, crm: [] })); });
     await act(async () => { responderA(acessos(TODAS)); });
     expect(screen.queryByRole("link", { name: /Acessar CRM/ })).not.toBeInTheDocument();
     expect(within(cardDe("CRM Unum")).getByText("Sem acesso nesta empresa")).toBeInTheDocument();

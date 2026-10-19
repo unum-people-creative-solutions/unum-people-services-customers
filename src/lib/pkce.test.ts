@@ -101,13 +101,15 @@ describe("pkce", () => {
       process.env.NEXT_PUBLIC_COGNITO_CUSTOMERS_CLIENT_ID = "customers-client-id";
     });
 
-    it("redireciona pro endpoint /logout do Cognito (nunca /oauth2/authorize) com logout_uri válido", () => {
+    // Bug: voltar ao próprio Portal deixava a tela no spinner (a guarda de logout
+    // segura o login de novo); sair leva ao site principal.
+    it("redireciona pro endpoint /logout do Cognito (nunca /oauth2/authorize) com logout_uri do site principal", () => {
       logoutFromHostedUI();
 
       const url = new URL(window.location.href);
       expect(url.origin + url.pathname).toBe("https://auth.unumpeople.com.br/logout");
       expect(url.searchParams.get("client_id")).toBe("customers-client-id");
-      expect(url.searchParams.get("logout_uri")).toBe("https://customer.unumpeople.com.br/");
+      expect(url.searchParams.get("logout_uri")).toBe("https://unumpeople.com.br/");
     });
 
     it("um redirectToHostedUI disparado logo após logoutFromHostedUI nunca sobrescreve a navegação de logout", async () => {

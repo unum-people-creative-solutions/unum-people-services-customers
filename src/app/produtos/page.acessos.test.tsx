@@ -1,7 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import ProductsPage from "./page";
 import { AcessosService, TenantService, type MeusAcessos } from "@/services/api";
+import { useTenant } from "@/contexts/TenantContext";
 
 // spec: gestao-de-acesso-f4-aplicacao RF-08, CA-05 (Portal, Meus Produtos).
 
@@ -27,11 +28,11 @@ vi.mock("@/contexts/TenantContext", () => ({
 
 type Papeis = { crm: string[]; blog: string[]; lp: string[] };
 
-function acessos({ crm, blog, lp }: Papeis): MeusAcessos {
+function acessos({ crm, blog, lp }: Papeis, naoContratadas: string[] = []): MeusAcessos {
   const ferramenta = (id: string, nome: string, permissoes: string[]) => ({
     id,
     nome,
-    contratada: true,
+    contratada: !naoContratadas.includes(id),
     papel: permissoes.length ? { id: "p-x", nome: "Papel", sistema: false, implicito: false } : { id: "sem_acesso", nome: "Sem acesso", sistema: true, implicito: false },
     permissoes,
   });
@@ -118,9 +119,40 @@ describe("Meus Produtos segue o papel de cada ferramenta", () => {
     vi.mocked(AcessosService.get).mockReturnValue(new Promise(() => {}));
     render(<ProductsPage />);
     expect(await screen.findByRole("link", { name: /Visitar Site/i })).toBeInTheDocument();
+    expect(screen.queryByText("Sem acesso nesta empresa")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Acessar CRM/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Acessar Blog/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Editar página/ })).not.toBeInTheDocument();
+  });
+
+  it("ferramenta não contratada (sem o serviço, ou empresa suspensa) não mostra Sem acesso", async () => {
+    vi.mocked(AcessosService.get).mockResolvedValue(acessos({ crm: [], blog: [], lp: [] }, ["crm", "blog", "lp"]));
+    render(<ProductsPage />);
+    expect(await screen.findByRole("link", { name: /Visitar Site/i })).toBeInTheDocument();
+    await waitFor(() => expect(AcessosService.get).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByText("Sem acesso nesta empresa")).not.toBeInTheDocument();
+  });
+
+  it("troca de empresa: nada da anterior vale enquanto a nova carrega, e a resposta atrasada é ignorada", async () => {
+    const tenantDe = (id: string) => ({ activeTenantId: id, availableTenants: [{ id, nome_negocio: id }], isMultiTenant: true, switchTenant: vi.fn(), isLoadingTenants: false });
+    let responderA: (v: MeusAcessos) => void = () => {};
+    let responderB: (v: MeusAcessos) => void = () => {};
+    vi.mocked(AcessosService.get).mockImplementation((id?: string) =>
+      new Promise<MeusAcessos>((r) => { if (id === "A") responderA = r; else responderB = r; }),
+    );
+    vi.mocked(useTenant).mockReturnValue(tenantDe("A") as any);
+    const { rerender } = render(<ProductsPage />);
+    await screen.findByRole("link", { name: /Visitar Site/i });
+    vi.mocked(useTenant).mockReturnValue(tenantDe("B") as any);
+    rerender(<ProductsPage />);
+    await waitFor(() => expect(AcessosService.get).toHaveBeenLastCalledWith("B"));
+    expect(screen.queryByRole("link", { name: /Acessar CRM/ })).not.toBeInTheDocument();
+    await act(async () => { responderB(acessos({ ...TODAS, crm: [] })); });
+    expect(within(cardDe("CRM Unum")).getByText("Sem acesso nesta empresa")).toBeInTheDocument();
+    await act(async () => { responderA(acessos(TODAS)); });
+    expect(screen.queryByRole("link", { name: /Acessar CRM/ })).not.toBeInTheDocument();
+    expect(within(cardDe("CRM Unum")).getByText("Sem acesso nesta empresa")).toBeInTheDocument();
   });
 
   it("se a leitura das permissões falha, avisa e esconde os Acessar", async () => {

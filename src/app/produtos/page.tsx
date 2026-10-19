@@ -44,7 +44,9 @@ type EstadoAcessos =
 function temPermissao(estado: EstadoAcessos, ferramentaId: string, permissao: string): boolean | null {
   if (estado.status !== "pronto") return null;
   const ferramenta = estado.dados.ferramentas.find((f) => f.id === ferramentaId);
-  return ferramenta?.permissoes.includes(permissao) ?? false;
+  // Ausente ou não contratada não decide; "Não incluso" continua em enabled_services.
+  if (!ferramenta?.contratada) return null;
+  return ferramenta.permissoes.includes(permissao);
 }
 
 export default function ProductsPage() {

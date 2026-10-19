@@ -23,6 +23,12 @@ vi.mock("@/services/api", async () => {
   };
 });
 
+// O cabeçalho usa next/image; os testes de return_to trocam window.location por
+// { href }, e o next/image não monta URL sem ele. Imagem simples basta aqui.
+vi.mock("next/image", () => ({
+  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
+}));
+
 vi.mock("@/lib/pkce", () => ({
   logoutFromHostedUI: vi.fn(),
 }));

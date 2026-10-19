@@ -1,4 +1,6 @@
 import { render, screen } from "@testing-library/react";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import AppHeader from "./AppHeader";
 import { usePathname } from "next/navigation";
@@ -40,6 +42,16 @@ describe("AppHeader", () => {
 
     expect(screen.getByText("Unum People")).toBeInTheDocument();
     expect(screen.getByText("Portal do Cliente")).toBeInTheDocument();
+  });
+
+  // Bug: o cabeçalho mostrava um quadrado com "U" no lugar do símbolo da marca.
+  it("mostra o símbolo da Unum People, servido pelo próprio Portal", () => {
+    (usePathname as any).mockReturnValue("/produtos");
+    render(<AppHeader />);
+
+    const logo = screen.getByRole("img", { name: "Unum People" });
+    expect(logo.getAttribute("src")).toContain("logo_simbolo.webp");
+    expect(existsSync(join(process.cwd(), "public", "images", "logo_simbolo.webp"))).toBe(true);
   });
 
   it("renderiza o link de Termos Legais e oculta Meus Produtos na rota /produtos", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { logoutFromHostedUI } from "@/lib/pkce";
@@ -23,9 +24,13 @@ export default function AppHeader() {
     <header className="bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-10 shadow-sm">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-blue rounded-lg flex items-center justify-center shadow-md shadow-blue-200">
-            <span className="text-white font-black text-xl">U</span>
-          </div>
+          <Image
+            src="/images/logo_simbolo.webp"
+            alt="Unum People"
+            width={40}
+            height={40}
+            className="rounded-lg"
+          />
           <div>
             <h1 className="text-lg font-bold text-gray-900 leading-tight">Unum People</h1>
             <p className="text-xs text-support-grey">Portal do Cliente</p>

@@ -114,10 +114,13 @@ export async function redirectToHostedUI(returnTo: string): Promise<void> {
   window.location.href = url;
 }
 
+// URL cadastrada em logout_urls do client customers no Cognito.
+const SITE_PRINCIPAL_URL = "https://unumpeople.com.br/";
+
 export function logoutFromHostedUI(): void {
   sessionStorage.setItem(LOGOUT_IN_PROGRESS_KEY, String(Date.now()));
   const { domain, clientId } = getEnvConfig();
-  const logoutUri = `${window.location.origin}/`;
+  const logoutUri = SITE_PRINCIPAL_URL;
   const query = new URLSearchParams({
     client_id: clientId,
     logout_uri: logoutUri,

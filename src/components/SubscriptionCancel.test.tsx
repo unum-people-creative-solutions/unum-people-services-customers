@@ -4,9 +4,10 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import SubscriptionCancel from './SubscriptionCancel';
 import { CancellationService, type CancellationPreview } from '@/services/api';
 
-vi.mock('@/services/api', () => ({
-  CancellationService: { getPreview: vi.fn(), request: vi.fn() },
-}));
+vi.mock('@/services/api', async () => {
+  const real = await vi.importActual<typeof import('@/services/api')>('@/services/api');
+  return { ...real, CancellationService: { getPreview: vi.fn(), request: vi.fn() } };
+});
 
 const getPreview = CancellationService.getPreview as unknown as ReturnType<typeof vi.fn>;
 const request = CancellationService.request as unknown as ReturnType<typeof vi.fn>;
@@ -91,6 +92,16 @@ describe('SubscriptionCancel', () => {
       'Não foi possível cancelar agora. Nada foi alterado. Tente de novo em alguns minutos.',
     );
     expect(within(dialog).getByRole('button', { name: 'Confirmar cancelamento' })).toBeEnabled();
+  });
+
+  // gestao-de-acesso-f4: com o portal aplicando, a rota recusa sem portal.contrato.cancelar.
+  it('403 com permissão: mostra a mensagem de permissão', async () => {
+    getPreview.mockResolvedValue(arrependimento);
+    request.mockRejectedValue({ response: { status: 403, data: { error: 'forbidden', permissao: 'portal.contrato.cancelar' } } });
+    render(<SubscriptionCancel />);
+    const { user, dialog } = await abrirDialogo();
+    await user.click(within(dialog).getByRole('button', { name: 'Confirmar cancelamento' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Você não tem permissão para fazer isso nesta empresa.');
   });
 
   it('durante o envio o botão fica desabilitado com "Cancelando…"', async () => {

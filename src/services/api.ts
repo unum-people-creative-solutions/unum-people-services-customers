@@ -28,6 +28,16 @@ api.interceptors.response.use(
   }
 );
 
+export const MENSAGEM_SEM_PERMISSAO = 'Você não tem permissão para fazer isso nesta empresa.';
+
+// 403 do axios com response.data.permissao string não vazia.
+export function ehRecusaPorPermissao(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null || !('response' in err)) return false;
+  const response = (err as { response?: { status?: number; data?: { permissao?: unknown } } }).response;
+  const permissao = response?.data?.permissao;
+  return response?.status === 403 && typeof permissao === 'string' && permissao.length > 0;
+}
+
 export interface TermStatusItem {
   type: string;
   term_id: string;
@@ -80,6 +90,39 @@ export const TenantService = {
   },
   list: async (): Promise<any[]> => {
     const response = await api.get('/me/tenants');
+    return response.data;
+  },
+};
+
+export interface PapelResumo {
+  id: string;
+  nome: string;
+  sistema: boolean;
+  implicito: boolean;
+}
+
+export interface AcessoFerramenta {
+  id: string;
+  nome: string;
+  contratada: boolean;
+  papel: PapelResumo | null;
+  permissoes: string[];
+}
+
+export interface MeusAcessos {
+  tenant_id: string;
+  operador: boolean;
+  ferramentas: AcessoFerramenta[];
+}
+
+// RF-08: permissões da empresa ativa. O id vai codificado (# vira %23).
+export const AcessosService = {
+  get: async (tenantId?: string): Promise<MeusAcessos> => {
+    let url = '/me/acessos';
+    if (tenantId) {
+      url += `?tenant_id=${encodeURIComponent(tenantId)}`;
+    }
+    const response = await api.get(url);
     return response.data;
   },
 };

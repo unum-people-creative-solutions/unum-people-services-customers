@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { TenantService, TenantResponse } from "@/services/api";
+import { useEffect, useRef, useState } from "react";
+import { TenantService, TenantResponse, AcessosService, MeusAcessos } from "@/services/api";
 import { 
   Globe, 
   Kanban, 
@@ -35,23 +35,59 @@ function lpEditorUrl(siteUrl: string): string | null {
   }
 }
 
+type EstadoAcessos =
+  | { status: "carregando" }
+  | { status: "pronto"; dados: MeusAcessos }
+  | { status: "erro" };
+
+// null = carregando ou erro: não decide, para não liberar por engano.
+function temPermissao(estado: EstadoAcessos, ferramentaId: string, permissao: string): boolean | null {
+  if (estado.status !== "pronto") return null;
+  const ferramenta = estado.dados.ferramentas.find((f) => f.id === ferramentaId);
+  // Ausente ou não contratada não decide; "Não incluso" continua em enabled_services.
+  if (!ferramenta?.contratada) return null;
+  return ferramenta.permissoes.includes(permissao);
+}
+
 export default function ProductsPage() {
   const { activeTenantId, isLoadingTenants } = useTenant();
   const [tenant, setTenant] = useState<TenantResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [acessosEstado, setAcessosEstado] = useState<EstadoAcessos>({ status: "carregando" });
+  const requisicaoRef = useRef(0);
 
   const fetchTenant = async (tenantId?: string) => {
+    const requisicao = ++requisicaoRef.current;
+    setLoading(true);
+    setError(null);
+    setAcessosEstado({ status: "carregando" });
+
+    // As duas leituras começam juntas; o atraso de uma empresa anterior é ignorado.
+    const tenantPromise = TenantService.getMe(tenantId);
+    const acessosPromise = AcessosService.get(tenantId);
+
     try {
-      setLoading(true);
-      setError(null);
-      const res = await TenantService.getMe(tenantId);
-      setTenant(res);
+      const res = await tenantPromise;
+      if (requisicao === requisicaoRef.current) setTenant(res);
     } catch (err: any) {
-      console.error("Erro ao carregar dados do tenant:", err);
-      setError("Não foi possível carregar as informações da sua conta. Tente novamente.");
+      if (requisicao === requisicaoRef.current) {
+        console.error("Erro ao carregar dados do tenant:", err);
+        setError("Não foi possível carregar as informações da sua conta. Tente novamente.");
+      }
     } finally {
-      setLoading(false);
+      // A página aparece com o getMe; permissão pendente não segura o spinner.
+      if (requisicao === requisicaoRef.current) setLoading(false);
+    }
+
+    try {
+      const dados = await acessosPromise;
+      if (requisicao !== requisicaoRef.current) return;
+      setAcessosEstado({ status: "pronto", dados });
+    } catch (err) {
+      if (requisicao !== requisicaoRef.current) return;
+      console.error("Erro ao carregar permissões:", err);
+      setAcessosEstado({ status: "erro" });
     }
   };
 
@@ -77,6 +113,10 @@ export default function ProductsPage() {
 
   const isCrmEnabled = tenant?.enabled_services?.includes("crm") ?? false;
   const isBlogEnabled = tenant?.enabled_services?.includes("blog") ?? false;
+  const podeVerCrm = temPermissao(acessosEstado, "crm", "crm.lead.ver");
+  const podeVerBlog = temPermissao(acessosEstado, "blog", "blog.post.ver");
+  const podeVerLp = temPermissao(acessosEstado, "lp", "lp.pagina.ver");
+  const podeEditarLp = temPermissao(acessosEstado, "lp", "lp.rascunho.editar");
   const sites = tenant?.site_urls?.length
     ? tenant.site_urls
     : (tenant?.site_url ? [tenant.site_url] : []);
@@ -123,15 +163,25 @@ export default function ProductsPage() {
           <p className="text-sm text-gray-500 mt-1">Abaixo estão as ferramentas e serviços configurados para a sua empresa.</p>
         </div>
 
+        {acessosEstado.status === "erro" && (
+          <div role="alert" className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex gap-3 items-start shadow-sm">
+            <Settings className="text-red-500 shrink-0 mt-0.5" size={20} />
+            <div>
+              <h3 className="font-bold text-red-800 text-sm">Erro</h3>
+              <p className="text-red-700 text-sm mt-1">Não foi possível carregar suas permissões nesta empresa.</p>
+            </div>
+          </div>
+        )}
+
         {/* Products Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Card 1: Site Institucional */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition group">
+          <section aria-labelledby="produto-site" className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition group">
             <div>
               <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-brand-blue mb-4">
                 <Globe size={24} />
               </div>
-              <h4 className="text-lg font-bold text-gray-900">Site Institucional</h4>
+              <h4 id="produto-site" className="text-lg font-bold text-gray-900">Site Institucional</h4>
               <p className="text-sm text-gray-600 mt-2">
                 Sua presença digital principal com carregamento rápido e design otimizado para conversões.
               </p>
@@ -153,7 +203,7 @@ export default function ProductsPage() {
                           {sites.length === 1 ? "Visitar Site" : `Visitar ${siteHostLabel(url)}`}
                           <ArrowRight size={16} />
                         </a>
-                        {editorUrl && (
+                        {editorUrl && podeEditarLp === true && (
                           <a
                             href={editorUrl}
                             className="w-full bg-blue-50 border border-blue-200 text-brand-blue py-2.5 px-4 rounded-xl font-bold hover:bg-blue-100 transition flex items-center justify-center gap-2 text-sm"
@@ -172,11 +222,17 @@ export default function ProductsPage() {
                   Em produção
                 </div>
               )}
+              {podeVerLp === false && (
+                <div className="w-full mt-2 bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
+                  <Lock size={14} />
+                  Sem acesso nesta empresa
+                </div>
+              )}
             </div>
-          </div>
+          </section>
 
           {/* Card 2: CRM */}
-          <div className={`bg-white rounded-2xl border p-6 flex flex-col justify-between shadow-sm transition ${
+          <section aria-labelledby="produto-crm" className={`bg-white rounded-2xl border p-6 flex flex-col justify-between shadow-sm transition ${
             isCrmEnabled ? "border-gray-200 hover:shadow-md" : "border-gray-100 bg-gray-50/50"
           }`}>
             <div>
@@ -186,7 +242,7 @@ export default function ProductsPage() {
                 <Kanban size={24} />
               </div>
               <div className="flex items-center gap-2">
-                <h4 className="text-lg font-bold text-gray-900">CRM Unum</h4>
+                <h4 id="produto-crm" className="text-lg font-bold text-gray-900">CRM Unum</h4>
                 {!isCrmEnabled && (
                   <span className="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 px-2 py-0.5 rounded border border-gray-200">
                     Bloqueado
@@ -200,13 +256,20 @@ export default function ProductsPage() {
 
             <div className="mt-6 pt-6 border-t border-gray-100">
               {isCrmEnabled ? (
-                <a
-                  href={crmUrl}
-                  className="w-full bg-brand-orange text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm shadow-orange-100"
-                >
-                  Acessar CRM
-                  <ArrowRight size={16} />
-                </a>
+                podeVerCrm === true ? (
+                  <a
+                    href={crmUrl}
+                    className="w-full bg-brand-orange text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm shadow-orange-100"
+                  >
+                    Acessar CRM
+                    <ArrowRight size={16} />
+                  </a>
+                ) : podeVerCrm === false ? (
+                  <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
+                    <Lock size={14} />
+                    Sem acesso nesta empresa
+                  </div>
+                ) : null
               ) : (
                 <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
                   <Lock size={14} />
@@ -214,10 +277,10 @@ export default function ProductsPage() {
                 </div>
               )}
             </div>
-          </div>
+          </section>
 
           {/* Card 3: Blog */}
-          <div className={`bg-white rounded-2xl border p-6 flex flex-col justify-between shadow-sm transition ${
+          <section aria-labelledby="produto-blog" className={`bg-white rounded-2xl border p-6 flex flex-col justify-between shadow-sm transition ${
             isBlogEnabled ? "border-gray-200 hover:shadow-md" : "border-gray-100 bg-gray-50/50"
           }`}>
             <div>
@@ -227,7 +290,7 @@ export default function ProductsPage() {
                 <BookOpen size={24} />
               </div>
               <div className="flex items-center gap-2">
-                <h4 className="text-lg font-bold text-gray-900">Blog Admin</h4>
+                <h4 id="produto-blog" className="text-lg font-bold text-gray-900">Blog Admin</h4>
                 {!isBlogEnabled && (
                   <span className="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 px-2 py-0.5 rounded border border-gray-200">
                     Bloqueado
@@ -241,13 +304,20 @@ export default function ProductsPage() {
 
             <div className="mt-6 pt-6 border-t border-gray-100">
               {isBlogEnabled ? (
-                <a
-                  href={blogUrl}
-                  className="w-full bg-brand-purple text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm shadow-purple-100"
-                >
-                  Acessar Blog
-                  <ArrowRight size={16} />
-                </a>
+                podeVerBlog === true ? (
+                  <a
+                    href={blogUrl}
+                    className="w-full bg-brand-purple text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm shadow-purple-100"
+                  >
+                    Acessar Blog
+                    <ArrowRight size={16} />
+                  </a>
+                ) : podeVerBlog === false ? (
+                  <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
+                    <Lock size={14} />
+                    Sem acesso nesta empresa
+                  </div>
+                ) : null
               ) : (
                 <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
                   <Lock size={14} />
@@ -255,7 +325,7 @@ export default function ProductsPage() {
                 </div>
               )}
             </div>
-          </div>
+          </section>
         </div>
 
         {/* portal-cancelamento RF-C2: cancelamento e arrependimento da assinatura */}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { TermsService, TermStatusItem } from "@/services/api";
+import { TermsService, TermStatusItem, ehRecusaPorPermissao, MENSAGEM_SEM_PERMISSAO } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
 import { 
   FileText, 
@@ -89,6 +89,8 @@ export default function TermsPage() {
         setError(
           "Conflito de versão: Este termo foi atualizado recentemente. Por favor, recarregue a página para ler e aceitar a versão mais recente."
         );
+      } else if (ehRecusaPorPermissao(err)) {
+        setError(MENSAGEM_SEM_PERMISSAO);
       } else {
         setError(
           err.response?.data?.error ||

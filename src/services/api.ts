@@ -53,12 +53,21 @@ export interface TermsStatusResponse {
   pending: TermStatusItem[];
 }
 
+export interface PaginaDoConfigurador {
+  slug: string;
+  endereco: string;
+  publicada: boolean;
+}
+
 export interface TenantResponse {
   site_url: string; // depreciado — fonte da verdade é site_urls
   site_urls?: string[];
   enabled_services: string[];
   plan_name: string;
   status: string;
+  // Páginas do configurador (LP Builder) da empresa; a tela separa o card delas do site personalizado.
+  paginas?: PaginaDoConfigurador[];
+  paginas_indisponiveis?: boolean;
 }
 
 export const TermsService = {

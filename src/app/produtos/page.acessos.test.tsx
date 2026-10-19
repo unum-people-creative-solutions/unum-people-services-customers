@@ -64,10 +64,12 @@ describe("Meus Produtos segue o papel de cada ferramenta", () => {
     vi.clearAllMocks();
     vi.mocked(TenantService.getMe).mockResolvedValue({
       site_url: "",
-      site_urls: ["https://oficina.unumpeople.app"],
+      site_urls: [],
       enabled_services: ["crm", "blog", "site"],
       plan_name: "Completo",
       status: "Ativo",
+      paginas: [{ slug: "oficina", endereco: "https://oficina.unumpeople.app", publicada: true }],
+      paginas_indisponiveis: false,
     });
   });
 
@@ -97,28 +99,28 @@ describe("Meus Produtos segue o papel de cada ferramenta", () => {
     expect(within(cardDe("Blog Admin")).getByText("Sem acesso nesta empresa")).toBeInTheDocument();
   });
 
-  it("Páginas só com ver: o site continua visitável, sem Editar página", async () => {
+  it("Páginas só com ver: a página continua visitável, sem Editar página", async () => {
     vi.mocked(AcessosService.get).mockResolvedValue(acessos({ ...TODAS, lp: ["lp.pagina.ver"] }));
     render(<ProductsPage />);
-    expect(await screen.findByRole("link", { name: /Visitar Site/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Visitar página/i })).toBeInTheDocument();
     await screen.findByRole("link", { name: /Acessar CRM/ });
     expect(screen.queryByRole("link", { name: /Editar página/ })).not.toBeInTheDocument();
     expect(screen.queryByText("Sem acesso nesta empresa")).not.toBeInTheDocument();
   });
 
-  it("Sem acesso às Páginas: o site continua visitável e o cartão diz Sem acesso", async () => {
+  it("Sem acesso às Páginas: a página continua visitável e o cartão do configurador diz Sem acesso", async () => {
     vi.mocked(AcessosService.get).mockResolvedValue(acessos({ ...TODAS, lp: [] }));
     render(<ProductsPage />);
-    expect(await screen.findByRole("link", { name: /Visitar Site/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Visitar página/i })).toBeInTheDocument();
     await screen.findByRole("link", { name: /Acessar CRM/ });
     expect(screen.queryByRole("link", { name: /Editar página/ })).not.toBeInTheDocument();
-    expect(within(cardDe("Site Institucional")).getByText("Sem acesso nesta empresa")).toBeInTheDocument();
+    expect(within(cardDe("Configurador de páginas")).getByText("Sem acesso nesta empresa")).toBeInTheDocument();
   });
 
   it("enquanto as permissões carregam, nenhum Acessar aparece", async () => {
     vi.mocked(AcessosService.get).mockReturnValue(new Promise(() => {}));
     render(<ProductsPage />);
-    expect(await screen.findByRole("link", { name: /Visitar Site/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Visitar página/i })).toBeInTheDocument();
     expect(screen.queryByText("Sem acesso nesta empresa")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Acessar CRM/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Acessar Blog/ })).not.toBeInTheDocument();
@@ -128,7 +130,7 @@ describe("Meus Produtos segue o papel de cada ferramenta", () => {
   it("ferramenta não contratada (sem o serviço, ou empresa suspensa) não mostra Sem acesso", async () => {
     vi.mocked(AcessosService.get).mockResolvedValue(acessos({ crm: [], blog: [], lp: [] }, ["crm", "blog", "lp"]));
     render(<ProductsPage />);
-    expect(await screen.findByRole("link", { name: /Visitar Site/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Visitar página/i })).toBeInTheDocument();
     await waitFor(() => expect(AcessosService.get).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByText("Sem acesso nesta empresa")).not.toBeInTheDocument();
@@ -143,7 +145,7 @@ describe("Meus Produtos segue o papel de cada ferramenta", () => {
     );
     vi.mocked(useTenant).mockReturnValue(tenantDe("A") as any);
     const { rerender } = render(<ProductsPage />);
-    await screen.findByRole("link", { name: /Visitar Site/i });
+    await screen.findByRole("link", { name: /Visitar página/i });
     // A carrega com acesso ao CRM antes da troca: nada disso pode valer enquanto B carrega.
     await act(async () => { responderA(acessos(TODAS)); });
     expect(await screen.findByRole("link", { name: /Acessar CRM/ })).toBeInTheDocument();
@@ -164,7 +166,7 @@ describe("Meus Produtos segue o papel de cada ferramenta", () => {
     );
     vi.mocked(useTenant).mockReturnValue(tenantDe("A") as any);
     const { rerender } = render(<ProductsPage />);
-    await screen.findByRole("link", { name: /Visitar Site/i });
+    await screen.findByRole("link", { name: /Visitar página/i });
     vi.mocked(useTenant).mockReturnValue(tenantDe("B") as any);
     rerender(<ProductsPage />);
     await waitFor(() => expect(AcessosService.get).toHaveBeenLastCalledWith("B"));

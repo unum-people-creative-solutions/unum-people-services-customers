@@ -10,29 +10,18 @@ import {
   Lock, 
   RefreshCw,
   Settings,
-  Pencil
+  Pencil,
+  LayoutTemplate
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
 import SubscriptionCancel from "@/components/SubscriptionCancel";
 
-const LP_HOST_SUFFIX = ".unumpeople.app";
-
-// RF-5A-28: sites hospedados em *.unumpeople.app são editáveis no lp-builder;
-// o slug é o primeiro rótulo do host. URL inválida ou domínio próprio => sem link.
-function lpEditorUrl(siteUrl: string): string | null {
-  try {
-    const { hostname } = new URL(siteUrl);
-    if (!hostname.endsWith(LP_HOST_SUFFIX)) return null;
-    const slug = hostname.slice(0, -LP_HOST_SUFFIX.length).split(".")[0];
-    if (!slug) return null;
-    // Mesmo padrão de crmUrl/blogUrl: env com fallback para produção.
-    const base = process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
-    return `${base}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
-  } catch {
-    return null;
-  }
+// RF-5A-28: o editor de cada página do configurador abre pelo slug dela.
+function editorDaPagina(slug: string): string {
+  const base = process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
+  return `${base}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
 }
 
 type EstadoAcessos =
@@ -120,6 +109,8 @@ export default function ProductsPage() {
   const sites = tenant?.site_urls?.length
     ? tenant.site_urls
     : (tenant?.site_url ? [tenant.site_url] : []);
+  const paginas = tenant?.paginas ?? [];
+  const paginasIndisponiveis = tenant?.paginas_indisponiveis ?? false;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -135,7 +126,7 @@ export default function ProductsPage() {
             </span>
             <h2 className="text-2xl md:text-3xl font-black mt-3">Olá! Bem-vindo ao seu portal.</h2>
             <p className="text-white/80 text-sm mt-1 max-w-xl">
-              Aqui você pode gerenciar suas assinaturas, visualizar o status do seu site institucional e acessar as ferramentas inclusas no seu plano.
+              Aqui você pode gerenciar suas assinaturas, ver o status dos seus sites e acessar as ferramentas inclusas no seu plano.
             </p>
           </div>
 
@@ -175,61 +166,97 @@ export default function ProductsPage() {
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Card 1: Site Institucional */}
-          <section aria-labelledby="produto-site" className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition group">
-            <div>
-              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-brand-blue mb-4">
-                <Globe size={24} />
+          {/* Card: Site personalizado */}
+          {sites.length > 0 && (
+            <section aria-labelledby="produto-site" className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition group">
+              <div>
+                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-brand-blue mb-4">
+                  <Globe size={24} />
+                </div>
+                <h4 id="produto-site" className="text-lg font-bold text-gray-900">Site personalizado</h4>
+                <p className="text-sm text-gray-600 mt-2">
+                  O site feito sob medida para a sua empresa, no seu domínio.
+                </p>
               </div>
-              <h4 id="produto-site" className="text-lg font-bold text-gray-900">Site Institucional</h4>
-              <p className="text-sm text-gray-600 mt-2">
-                Sua presença digital principal com carregamento rápido e design otimizado para conversões.
-              </p>
-            </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              {sites.length > 0 ? (
+              <div className="mt-6 pt-6 border-t border-gray-100">
                 <div className="flex flex-col gap-2">
-                  {sites.map((url) => {
-                    const editorUrl = lpEditorUrl(url);
-                    return (
-                      <div key={url} className="flex flex-col gap-2">
+                  {sites.map((url) => (
+                    <div key={url} className="flex flex-col gap-2">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
+                      >
+                        {sites.length === 1 ? "Visitar site" : `Visitar ${siteHostLabel(url)}`}
+                        <ArrowRight size={16} />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Card: Configurador de páginas */}
+          {(paginas.length > 0 || paginasIndisponiveis) && (
+            <section aria-labelledby="produto-configurador" className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition group">
+              <div>
+                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-brand-blue mb-4">
+                  <LayoutTemplate size={24} />
+                </div>
+                <h4 id="produto-configurador" className="text-lg font-bold text-gray-900">Configurador de páginas</h4>
+                <p className="text-sm text-gray-600 mt-2">
+                  Suas páginas montadas no configurador da Unum People, prontas para captar contatos.
+                </p>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <div className="flex flex-col gap-2">
+                  {paginasIndisponiveis && (
+                    <p role="alert" className="w-full bg-amber-50 border border-amber-200 text-amber-800 py-2.5 px-4 rounded-xl text-xs font-bold text-center">
+                      Não foi possível carregar as páginas do configurador.
+                    </p>
+                  )}
+                  {paginas.map((pagina) => (
+                    <div key={pagina.slug} className="flex flex-col gap-2">
+                      {pagina.publicada ? (
                         <a
-                          href={url}
+                          href={pagina.endereco}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
                         >
-                          {sites.length === 1 ? "Visitar Site" : `Visitar ${siteHostLabel(url)}`}
+                          {paginas.length === 1 ? "Visitar página" : `Visitar ${siteHostLabel(pagina.endereco)}`}
                           <ArrowRight size={16} />
                         </a>
-                        {editorUrl && podeEditarLp === true && (
-                          <a
-                            href={editorUrl}
-                            className="w-full bg-blue-50 border border-blue-200 text-brand-blue py-2.5 px-4 rounded-xl font-bold hover:bg-blue-100 transition flex items-center justify-center gap-2 text-sm"
-                          >
-                            <Pencil size={16} />
-                            Editar página
-                          </a>
-                        )}
-                      </div>
-                    );
-                  })}
+                      ) : (
+                        <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
+                          Página fora do ar
+                        </div>
+                      )}
+                      {podeEditarLp === true && (
+                        <a
+                          href={editorDaPagina(pagina.slug)}
+                          className="w-full bg-blue-50 border border-blue-200 text-brand-blue py-2.5 px-4 rounded-xl font-bold hover:bg-blue-100 transition flex items-center justify-center gap-2 text-sm"
+                        >
+                          <Pencil size={16} />
+                          {paginas.length === 1 ? "Editar página" : `Editar ${siteHostLabel(pagina.endereco)}`}
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <div className="w-full bg-blue-50 border border-blue-200 text-brand-blue font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs">
-                  <span className="w-2 h-2 bg-brand-blue rounded-full animate-ping"></span>
-                  Em produção
-                </div>
-              )}
-              {podeVerLp === false && (
-                <div className="w-full mt-2 bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
-                  <Lock size={14} />
-                  Sem acesso nesta empresa
-                </div>
-              )}
-            </div>
-          </section>
+                {podeVerLp === false && (
+                  <div className="w-full mt-2 bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
+                    <Lock size={14} />
+                    Sem acesso nesta empresa
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Card 2: CRM */}
           <section aria-labelledby="produto-crm" className={`bg-white rounded-2xl border p-6 flex flex-col justify-between shadow-sm transition ${

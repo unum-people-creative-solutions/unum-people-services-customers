@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { jwtDecode } from "jwt-decode";
 import { logoutFromHostedUI } from "@/lib/pkce";
 import { useAuthStore } from "@/store/authStore";
 import { useTenant } from "@/contexts/TenantContext";
@@ -12,6 +13,7 @@ import { TenantSwitcher } from "./TenantSwitcher";
 export default function AppHeader() {
   const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
+  const session = useAuthStore((state) => state.session);
   const { activeTenantId } = useTenant();
   const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
 
@@ -19,6 +21,18 @@ export default function AppHeader() {
     logout();
     logoutFromHostedUI();
   };
+
+  // Nome da claim do id_token; senão, o e-mail da sessão.
+  let nome = session?.email ?? "";
+  if (session?.token) {
+    try {
+      const claims = jwtDecode<{ name?: string }>(session.token);
+      const name = claims.name?.trim();
+      if (name) nome = name;
+    } catch {
+      // Token ilegível: fica o e-mail.
+    }
+  }
 
   return (
     <header className="bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-10 shadow-sm">
@@ -62,6 +76,14 @@ export default function AppHeader() {
             >
               Usuários
             </a>
+          )}
+          {session && (
+            <span
+              title={session.email}
+              className="text-sm font-semibold text-gray-800 max-w-[12rem] truncate"
+            >
+              {nome}
+            </span>
           )}
           <button
             onClick={handleLogout}

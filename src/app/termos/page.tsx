@@ -100,7 +100,7 @@ export default function TermsPage() {
           term_id: item.term_id,
           term_name: item.term_name,
           versao: item.required_version,
-          aceitoEm: new Date().toLocaleDateString("pt-BR"),
+          aceitoEm: new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
           document_url: item.document_url,
         },
       ]);

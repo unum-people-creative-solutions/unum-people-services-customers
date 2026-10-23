@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import TermsPage from "./page";
 import { TermsService, type AcceptedTermItem, type TermStatusItem } from "@/services/api";
 import { useSearchParams } from "next/navigation";
@@ -40,7 +40,8 @@ const contratoAceito: AcceptedTermItem = {
   term_id: "term-contrato",
   term_name: "Termo de Contratação",
   accepted_version: 3,
-  accepted_at: "2026-10-03T23:55:38Z",
+  // 01:00 UTC do dia 4 ainda é dia 3 em Brasília: prova o fuso.
+  accepted_at: "2026-10-04T01:00:00Z",
   document_url: "https://unumpeople.com.br/termos/term-contrato/v3",
 };
 const usoAceito: AcceptedTermItem = {
@@ -67,6 +68,10 @@ async function abrir(pending: TermStatusItem[], accepted: AcceptedTermItem[]) {
 }
 
 describe("Termos aceitos na tela de termos", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useSearchParams).mockReturnValue({ get: vi.fn().mockReturnValue(null) } as never);
@@ -97,6 +102,9 @@ describe("Termos aceitos na tela de termos", () => {
   // T11
   it("com pendente: o pendente vem antes dos aceitos; ao aceitar, ele passa para os aceitos com a data de hoje", async () => {
     vi.mocked(TermsService.accept).mockResolvedValue(undefined);
+    // "Hoje" às 02:00 UTC do dia 24 é dia 23 em Brasília.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-24T02:00:00Z"));
     await abrir([politicaPendente], [usoAceito]);
 
     const pendente = screen.getByRole("heading", { name: "Política de Privacidade" });
@@ -106,7 +114,7 @@ describe("Termos aceitos na tela de termos", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /aceitar e continuar/i }));
 
-    const hoje = new Date().toLocaleDateString("pt-BR");
+    const hoje = "23/10/2026";
     await waitFor(() => {
       const aceitos = screen.getByRole("region", { name: "Termos aceitos" });
       const politica = within(aceitos)

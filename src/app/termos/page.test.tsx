@@ -52,7 +52,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
   });
 
   it("exibe spinner de carregamento inicialmente e depois carrega os termos", async () => {
-    (TermsService.getStatus as any).mockResolvedValue({ pending: [] });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: [] });
 
     render(<TermsPage />);
 
@@ -65,7 +65,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
   });
 
   it("exibe estado 'tudo em dia' e botão de produtos quando a lista de pendências está vazia", async () => {
-    (TermsService.getStatus as any).mockResolvedValue({ pending: [] });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: [] });
 
     render(<TermsPage />);
 
@@ -95,7 +95,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         document_url: "https://example.com/term-2.html",
       },
     ];
-    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
 
     render(<TermsPage />);
 
@@ -124,7 +124,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         document_url: "https://example.com/term-1.html",
       },
     ];
-    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
 
     render(<TermsPage />);
 
@@ -149,7 +149,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         document_url: "https://example.com/term-1.html",
       },
     ];
-    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
     (TermsService.accept as any).mockResolvedValue(undefined);
 
     render(<TermsPage />);
@@ -179,7 +179,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         document_url: "https://example.com/term-1.html",
       },
     ];
-    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
     const err409 = {
       response: {
         status: 409,
@@ -224,7 +224,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         document_url: "https://example.com/term-1.html",
       },
     ];
-    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
     
     const err500 = {
       response: {
@@ -260,7 +260,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         document_url: "https://example.com/term-1.html",
       },
     ];
-    (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
     (TermsService.accept as any).mockRejectedValue(new Error("Network Error"));
 
     render(<TermsPage />);
@@ -279,7 +279,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
   });
 
   it("permite fazer logout clicando no botão Sair", async () => {
-    (TermsService.getStatus as any).mockResolvedValue({ pending: [] });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: [] });
 
     render(<TermsPage />);
 
@@ -314,7 +314,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     it("mostra 'Empresa: <nome_negocio>' no item contratacao_servico", async () => {
       (TermsService.getStatus as any).mockResolvedValue({
-        pending: [
+        accepted: [], pending: [
           {
             type: "contratacao_servico",
             term_id: "term-1",
@@ -333,7 +333,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
 
     it("não mostra a empresa nos termos por usuário (termos_uso)", async () => {
       (TermsService.getStatus as any).mockResolvedValue({
-        pending: [
+        accepted: [], pending: [
           {
             type: "termos_uso",
             term_id: "term-2",
@@ -366,7 +366,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
     });
 
     it("redireciona imediatamente para return_to se a lista de pendências estiver vazia", async () => {
-      (TermsService.getStatus as any).mockResolvedValue({ pending: [] });
+      (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: [] });
       (useSearchParams as any).mockReturnValue({
         get: vi.fn().mockImplementation((key) => {
           if (key === "return_to") return "https://crm.unumpeople.com.br/kanban";
@@ -393,7 +393,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
           document_url: "https://example.com/term-1.html",
         },
       ];
-      (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+      (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
       (TermsService.accept as any).mockResolvedValue(undefined);
       (useSearchParams as any).mockReturnValue({
         get: vi.fn().mockImplementation((key) => {
@@ -436,7 +436,7 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
           document_url: "https://example.com/term-2.html",
         },
       ];
-      (TermsService.getStatus as any).mockResolvedValue({ pending: mockPending });
+      (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: mockPending });
       (TermsService.accept as any).mockResolvedValue(undefined);
       (useSearchParams as any).mockReturnValue({
         get: vi.fn().mockImplementation((key) => {

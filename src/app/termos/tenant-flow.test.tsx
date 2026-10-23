@@ -48,7 +48,7 @@ describe("Termos — tenant pedido pela URL até o aceite", () => {
       { id: "t-1", nome_negocio: "Clínica Um" },
       { id: "t-2", nome_negocio: "Clínica Dois" },
     ]);
-    (TermsService.getStatus as any).mockResolvedValue({ pending: [pendingContract] });
+    (TermsService.getStatus as any).mockResolvedValue({ accepted: [], pending: [pendingContract] });
     (TermsService.accept as any).mockResolvedValue({});
   });
 

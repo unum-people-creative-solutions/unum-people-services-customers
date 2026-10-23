@@ -163,7 +163,7 @@ export default function TermsPage() {
 
         {/* Global Error Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex gap-3 items-start shadow-sm">
+          <div role="alert" className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex gap-3 items-start shadow-sm">
             <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
             <div>
               <h3 className="font-bold text-red-800 text-sm">Atenção</h3>
@@ -292,7 +292,9 @@ export default function TermsPage() {
               Termos aceitos
             </h3>
             <ul className="flex flex-col gap-3">
-              {aceitos.map((aceito) => (
+              {aceitos.map((aceito) => {
+                const nome = aceito.term_name || "Documento sem título";
+                return (
                 <li
                   key={aceito.term_id}
                   className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"
@@ -300,7 +302,7 @@ export default function TermsPage() {
                   <div className="flex gap-3 items-start">
                     <CheckCircle className="text-green-600 shrink-0 mt-0.5" size={20} />
                     <div>
-                      <p className="font-bold text-gray-900">{aceito.term_name}</p>
+                      <p className="font-bold text-gray-900">{nome}</p>
                       <p className="text-xs text-support-grey mt-1">
                         <span>{`Versão ${aceito.versao}`}</span>
                         {" · "}
@@ -313,14 +315,15 @@ export default function TermsPage() {
                       href={aceito.document_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label={`Visualizar ${aceito.term_name}`}
+                      aria-label={`Visualizar ${nome}`}
                       className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition self-start md:self-auto"
                     >
                       Visualizar
                     </a>
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         )}

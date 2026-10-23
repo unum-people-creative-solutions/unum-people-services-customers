@@ -130,4 +130,24 @@ describe("Termos aceitos na tela de termos", () => {
 
     expect(screen.queryByRole("region", { name: "Termos aceitos" })).not.toBeInTheDocument();
   });
+
+  // Verifier: termo aceito cujo nome não carregou (a API manda term_name vazio).
+  it("aceito sem nome mostra 'Documento sem título' e o link continua com nome acessível", async () => {
+    await abrir([], [{ ...usoAceito, term_name: "" }]);
+
+    const regiao = screen.getByRole("region", { name: "Termos aceitos" });
+    expect(within(regiao).getByText("Documento sem título")).toBeInTheDocument();
+    expect(within(regiao).getByRole("link", { name: "Visualizar Documento sem título" })).toHaveAttribute(
+      "href",
+      usoAceito.document_url,
+    );
+  });
+
+  // Item 18: o erro de carga aparece num role="alert".
+  it("falha ao carregar os termos aparece num alerta", async () => {
+    vi.mocked(TermsService.getStatus).mockRejectedValue(new Error("rede"));
+    render(<TermsPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/não foi possível carregar/i);
+  });
 });

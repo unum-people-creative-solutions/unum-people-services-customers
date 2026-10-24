@@ -49,8 +49,19 @@ export interface TermStatusItem {
   accepted_at?: string;
 }
 
+// Termo já aceito, com o link da versão aceita (termos-vigentes-e-aceitos).
+export interface AcceptedTermItem {
+  type: string;
+  term_id: string;
+  term_name: string;
+  accepted_version: number;
+  accepted_at: string;
+  document_url: string;
+}
+
 export interface TermsStatusResponse {
   pending: TermStatusItem[];
+  accepted: AcceptedTermItem[];
 }
 
 export interface PaginaDoConfigurador {

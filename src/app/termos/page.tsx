@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { TermsService, TermStatusItem, ehRecusaPorPermissao, MENSAGEM_SEM_PERMISSAO } from "@/services/api";
+import { TermsService, TermStatusItem, AcceptedTermItem, ehRecusaPorPermissao, MENSAGEM_SEM_PERMISSAO } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
 import { 
   FileText, 
@@ -16,14 +16,34 @@ import { getSafeRedirect } from "@/lib/safeRedirect";
 import AppHeader from "@/components/AppHeader";
 
 interface DisplayTermItem extends TermStatusItem {
-  status: "pending" | "accepted";
-  acceptedAtDate?: string;
+  status: "pending";
+}
+
+// Termo aceito como a tela mostra: versão, data e link da versão aceita
+// (termos-vigentes-e-aceitos).
+interface TermoAceito {
+  term_id: string;
+  term_name: string;
+  versao: number;
+  aceitoEm: string;
+  document_url: string;
+}
+
+function termoAceitoDaApi(item: AcceptedTermItem): TermoAceito {
+  return {
+    term_id: item.term_id,
+    term_name: item.term_name,
+    versao: item.accepted_version,
+    aceitoEm: new Date(item.accepted_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+    document_url: item.document_url,
+  };
 }
 
 export default function TermsPage() {
   const searchParams = useSearchParams();
   const { activeTenantId, activeTenantName, isLoadingTenants } = useTenant();
   const [terms, setTerms] = useState<DisplayTermItem[]>([]);
+  const [aceitos, setAceitos] = useState<TermoAceito[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +58,7 @@ export default function TermsPage() {
         status: "pending",
       }));
       setTerms(displayItems);
+      setAceitos(res.accepted.map(termoAceitoDaApi));
     } catch (err: any) {
       console.error("Erro ao carregar termos:", err);
       setError("Não foi possível carregar a lista de termos pendentes. Tente novamente.");
@@ -71,18 +92,18 @@ export default function TermsPage() {
       setError(null);
       await TermsService.accept(item.type, item.required_version, activeTenantId);
       
-      // Atualiza o item localmente para "aceito"
-      setTerms((prev) =>
-        prev.map((t) =>
-          t.term_id === item.term_id
-            ? {
-                ...t,
-                status: "accepted" as const,
-                acceptedAtDate: new Date().toLocaleDateString("pt-BR"),
-              }
-            : t
-        )
-      );
+      // O termo aceito sai dos pendentes e entra nos aceitos, com a data de hoje
+      setTerms((prev) => prev.filter((t) => t.term_id !== item.term_id));
+      setAceitos((prev) => [
+        ...prev,
+        {
+          term_id: item.term_id,
+          term_name: item.term_name,
+          versao: item.required_version,
+          aceitoEm: new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+          document_url: item.document_url,
+        },
+      ]);
     } catch (err: any) {
       console.error("Erro ao aceitar termo:", err);
       if (err.response?.status === 409) {
@@ -101,8 +122,6 @@ export default function TermsPage() {
       setSubmittingId(null);
     }
   };
-
-  const hasPending = terms.some((t) => t.status === "pending");
 
   // RNF-PCT-06: Sem cache/ISR na busca de termos pendentes
   if (loading) {
@@ -144,7 +163,7 @@ export default function TermsPage() {
 
         {/* Global Error Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex gap-3 items-start shadow-sm">
+          <div role="alert" className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex gap-3 items-start shadow-sm">
             <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
             <div>
               <h3 className="font-bold text-red-800 text-sm">Atenção</h3>
@@ -178,19 +197,13 @@ export default function TermsPage() {
             {terms.map((item) => (
               <div
                 key={item.term_id}
-                className={`bg-white rounded-xl shadow-sm border p-6 transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-                  item.status === "accepted"
-                    ? "border-green-200 bg-green-50/10"
-                    : "border-gray-200"
-                }`}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div className="flex gap-4 items-start">
                     <div
                       className={`p-3 rounded-lg ${
-                        item.status === "accepted"
-                          ? "bg-green-100 text-green-700"
-                          : item.can_accept
+                        item.can_accept
                           ? "bg-blue-50 text-brand-blue"
                           : "bg-amber-50 text-amber-700"
                       }`}
@@ -200,9 +213,7 @@ export default function TermsPage() {
                     <div>
                       <span
                         className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                          item.status === "accepted"
-                            ? "bg-green-100 text-green-800"
-                            : item.can_accept
+                          item.can_accept
                             ? "bg-blue-100 text-brand-blue"
                             : "bg-amber-100 text-amber-800"
                         }`}
@@ -222,19 +233,9 @@ export default function TermsPage() {
                       )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 self-end md:self-start">
-                    {item.status === "accepted" && (
-                      <span className="text-xs text-green-700 font-semibold bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <CheckCircle size={14} />
-                        Aceito em {item.acceptedAtDate} (v{item.required_version})
-                      </span>
-                    )}
-                  </div>
                 </div>
 
-                {item.status === "pending" && (
-                  <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                       {item.can_accept ? (
                         <p className="text-xs text-gray-500">
@@ -279,22 +280,52 @@ export default function TermsPage() {
                       </button>
                     </div>
                   </div>
-                )}
               </div>
             ))}
 
-            {!hasPending && (
-              <div className="mt-4 flex justify-end">
-                <a
-                  href="/produtos"
-                  className="bg-brand-blue text-white px-6 py-2.5 rounded-lg font-bold hover:bg-opacity-90 transition flex items-center gap-2 shadow-md shadow-blue-200"
-                >
-                  Concluir e ir para Produtos
-                  <ArrowRight size={18} />
-                </a>
-              </div>
-            )}
           </div>
+        )}
+
+        {aceitos.length > 0 && (
+          <section aria-labelledby="termos-aceitos-titulo" className="mt-10">
+            <h3 id="termos-aceitos-titulo" className="text-lg font-bold text-gray-900 mb-4">
+              Termos aceitos
+            </h3>
+            <ul className="flex flex-col gap-3">
+              {aceitos.map((aceito) => {
+                const nome = aceito.term_name || "Documento sem título";
+                return (
+                <li
+                  key={aceito.term_id}
+                  className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"
+                >
+                  <div className="flex gap-3 items-start">
+                    <CheckCircle className="text-green-600 shrink-0 mt-0.5" size={20} />
+                    <div>
+                      <p className="font-bold text-gray-900">{nome}</p>
+                      <p className="text-xs text-support-grey mt-1">
+                        <span>{`Versão ${aceito.versao}`}</span>
+                        {" · "}
+                        <span>{`Aceito em ${aceito.aceitoEm}`}</span>
+                      </p>
+                    </div>
+                  </div>
+                  {aceito.document_url && (
+                    <a
+                      href={aceito.document_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Visualizar ${nome}`}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition self-start md:self-auto"
+                    >
+                      Visualizar
+                    </a>
+                  )}
+                </li>
+                );
+              })}
+            </ul>
+          </section>
         )}
       </main>
     </div>

@@ -25,7 +25,7 @@ describe("Termos: recusa por permissão", () => {
 
   it("403 com portal.contrato.aceitar mostra a mensagem de permissão, não o código da API", async () => {
     vi.mocked(TermsService.getStatus).mockResolvedValue({
-      pending: [{ type: "contratacao_servico", term_id: "t-c", term_name: "Termo de Contratação", required_version: 2, can_accept: true, document_url: "https://example.com/t.html" }],
+      accepted: [], pending: [{ type: "contratacao_servico", term_id: "t-c", term_name: "Termo de Contratação", required_version: 2, can_accept: true, document_url: "https://example.com/t.html" }],
     });
     vi.mocked(TermsService.accept).mockRejectedValue({ response: { status: 403, data: { error: "forbidden", permissao: "portal.contrato.aceitar" } } });
     render(<TermsPage />);

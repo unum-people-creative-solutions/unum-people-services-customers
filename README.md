@@ -25,7 +25,7 @@ Não existe tela de login própria — nasce direto integrado ao Hosted UI (mesm
 - **Fora do Google:** o portal inteiro pede para não indexar (`robots` nos metadados de `src/app/layout.tsx`, `noindex, nofollow`) e o `robots.txt` (`src/app/robots.ts`) bloqueia tudo. Quem não está logado é mandado ao Hosted UI (`auth.unumpeople.com.br`), e por esse caminho o Google chegava a indexar a página vazia de login.
 
 ## 3. Backend consumido
-`GET /me/terms/status`, `POST /me/terms/{type}/accept`, `GET /me/tenant`, `GET /me/acessos`, `GET`/`POST /me/usuarios`, `PATCH`/`DELETE /me/usuarios/{email}` e `GET /me/papeis` — endpoints do lambda `admin` (`Backend/unum-people-services-api`), aditivos e já em produção desde a Fase 1 desta feature.
+`GET /me/terms/status`, `POST /me/terms/{type}/accept`, `GET /me/tenant`, `GET /me/acessos`, `GET`/`POST /me/usuarios`, `PATCH`/`DELETE /me/usuarios/{email}` e `GET /me/papeis` — endpoints do lambda `admin` (`Codebase/unum-people-services-api`), aditivos e já em produção desde a Fase 1 desta feature.
 
 ## 4. Testes
 **Vitest** + **React Testing Library**.

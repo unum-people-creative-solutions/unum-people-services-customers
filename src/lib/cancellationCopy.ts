@@ -20,7 +20,7 @@ export function formatDateBR(date: string): string {
 export function kindText(preview: CancellationPreview): string {
   switch (preview.kind) {
     case 'arrependimento':
-      return `Você está no prazo de 7 dias para desistir. Devolvemos ${formatBRL(preview.refund?.value ?? 0)}. No Pix, a devolução é imediata; no cartão, o estorno aparece na fatura em até 10 dias úteis. Sua página sai do ar agora, e os dados da conta são excluídos em 30 dias.`;
+      return `Você está no prazo de 14 dias para desistir. Devolvemos ${formatBRL(preview.refund?.value ?? 0)}. No Pix, a devolução é imediata; no cartão, o estorno aparece na fatura em até 10 dias úteis. Sua página sai do ar agora, e os dados da conta são excluídos em 30 dias.`;
     case 'fim_de_periodo':
       return `Não haverá novas cobranças. Sua página fica no ar até o fim do período pago e sai do ar em ${formatDateBR(preview.effective_at)}. Os dados da conta são excluídos 30 dias depois. Antes disso, exporte os contatos no CRM.`;
     case 'imediato':

@@ -161,7 +161,7 @@ export interface CancellationPreview {
   kind: CancellationKind | '';
   effective_at: string; // AAAA-MM-DD
   refund: { value: number; billing_type: string } | null;
-  refund_deadline: string; // AAAA-MM-DD, vazio fora do prazo de 7 dias
+  refund_deadline: string; // AAAA-MM-DD, vazio fora do prazo de 14 dias
   refund_status?: RefundStatus;
   purge_days: number;
   scheduled: { cancel_at: string; requested_at: string } | null;

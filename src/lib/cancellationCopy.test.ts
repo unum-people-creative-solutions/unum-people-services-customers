@@ -17,7 +17,7 @@ describe('cancellationCopy', () => {
 
   it('arrependimento', () => {
     expect(kindText(base)).toBe(
-      'Você está no prazo de 7 dias para desistir. Devolvemos R$ 129,90. No Pix, a devolução é imediata; no cartão, o estorno aparece na fatura em até 10 dias úteis. Sua página sai do ar agora, e os dados da conta são excluídos em 30 dias.',
+      'Você está no prazo de 14 dias para desistir. Devolvemos R$ 129,90. No Pix, a devolução é imediata; no cartão, o estorno aparece na fatura em até 10 dias úteis. Sua página sai do ar agora, e os dados da conta são excluídos em 30 dias.',
     );
   });
 

@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import ProductsPage from "./page";
-import { TenantService, CancellationService } from "@/services/api";
+import { TenantService, CancellationService, type PaginaDoConfigurador, type TenantResponse } from "@/services/api";
 import { logoutFromHostedUI } from "@/lib/pkce";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -330,3 +330,74 @@ describe("ProductsPage — lista de sites (TASK-FE-CUST-002)", () => {
 
 // O link Editar página (RF-5A-28 / CA-5A-21) passou a vir das páginas do
 // configurador (GET /me/tenant "paginas"), não de site_urls: page.cards.test.tsx.
+
+// T-602 (lp-nova-pagina RF-NP-602/603). As páginas seguem o JSON de
+// paginaDoConfigurador da API (internal/handler/admin_handler.go).
+describe("ProductsPage — página ainda não publicada (T-602)", () => {
+  const aguardando: PaginaDoConfigurador = { slug: "nova", endereco: "https://nova.unumpages.app", publicada: false, aguarda_publicacao: true };
+  // Resposta de antes da F1 da API: a chave não vem.
+  const foraDoArSemAChave: PaginaDoConfigurador = { slug: "antiga", endereco: "https://antiga.unumpages.app", publicada: false };
+  const foraDoAr: PaginaDoConfigurador = { slug: "pausada", endereco: "https://pausada.unumpages.app", publicada: false, aguarda_publicacao: false };
+  const noAr: PaginaDoConfigurador = { slug: "loja", endereco: "https://loja.unumpages.app", publicada: true, aguarda_publicacao: false };
+
+  async function abrirCom(paginas: PaginaDoConfigurador[]) {
+    const dados: TenantResponse = { site_url: "", site_urls: [], enabled_services: [], plan_name: "Standard", status: "Ativo", paginas, paginas_indisponiveis: false };
+    (TenantService.getMe as any).mockResolvedValue(dados);
+    render(<ProductsPage />);
+    await waitFor(() => {
+      expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument();
+    });
+    return screen.getByRole("region", { name: "Configurador de páginas" });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("publicada false com aguarda_publicacao true: Ainda não publicada, sem Página fora do ar; Editar continua", async () => {
+    const configurador = await abrirCom([aguardando]);
+
+    expect(within(configurador).getByText("Ainda não publicada")).toBeInTheDocument();
+    expect(within(configurador).queryByText("Página fora do ar")).not.toBeInTheDocument();
+    expect(within(configurador).queryByRole("link", { name: /Visitar/ })).not.toBeInTheDocument();
+    expect(await within(configurador).findByRole("link", { name: "Editar página" })).toHaveAttribute("href", expect.stringContaining("/minha-conta/editar?slug=nova"));
+  });
+
+  it("publicada false sem a chave aguarda_publicacao: Página fora do ar; Editar continua", async () => {
+    const configurador = await abrirCom([foraDoArSemAChave]);
+
+    expect(within(configurador).getByText("Página fora do ar")).toBeInTheDocument();
+    expect(within(configurador).queryByText("Ainda não publicada")).not.toBeInTheDocument();
+    expect(within(configurador).queryByRole("link", { name: /Visitar/ })).not.toBeInTheDocument();
+    expect(await within(configurador).findByRole("link", { name: "Editar página" })).toHaveAttribute("href", expect.stringContaining("/minha-conta/editar?slug=antiga"));
+  });
+
+  it("publicada false com aguarda_publicacao false: Página fora do ar", async () => {
+    const configurador = await abrirCom([foraDoAr]);
+
+    expect(within(configurador).getByText("Página fora do ar")).toBeInTheDocument();
+    expect(within(configurador).queryByText("Ainda não publicada")).not.toBeInTheDocument();
+  });
+
+  it("publicada true: link Visitar, sem nenhum dos dois avisos; Editar continua", async () => {
+    const configurador = await abrirCom([noAr]);
+
+    expect(within(configurador).getByRole("link", { name: "Visitar página" })).toHaveAttribute("href", "https://loja.unumpages.app");
+    expect(within(configurador).queryByText("Ainda não publicada")).not.toBeInTheDocument();
+    expect(within(configurador).queryByText("Página fora do ar")).not.toBeInTheDocument();
+    expect(await within(configurador).findByRole("link", { name: "Editar página" })).toHaveAttribute("href", expect.stringContaining("/minha-conta/editar?slug=loja"));
+  });
+
+  it("as três juntas: um aviso de cada, um Visitar e o Editar nas três", async () => {
+    const configurador = await abrirCom([aguardando, foraDoArSemAChave, noAr]);
+
+    expect(within(configurador).getAllByText("Ainda não publicada")).toHaveLength(1);
+    expect(within(configurador).getAllByText("Página fora do ar")).toHaveLength(1);
+    expect(within(configurador).getAllByRole("link", { name: /Visitar/ })).toHaveLength(1);
+    expect(within(configurador).getByRole("link", { name: "Visitar loja.unumpages.app" })).toHaveAttribute("href", "https://loja.unumpages.app");
+
+    expect(await within(configurador).findByRole("link", { name: "Editar nova.unumpages.app" })).toBeInTheDocument();
+    expect(within(configurador).getByRole("link", { name: "Editar antiga.unumpages.app" })).toBeInTheDocument();
+    expect(within(configurador).getByRole("link", { name: "Editar loja.unumpages.app" })).toBeInTheDocument();
+  });
+});

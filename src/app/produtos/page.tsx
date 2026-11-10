@@ -233,7 +233,7 @@ export default function ProductsPage() {
                         </a>
                       ) : (
                         <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
-                          Página fora do ar
+                          {pagina.aguarda_publicacao === true ? "Ainda não publicada" : "Página fora do ar"}
                         </div>
                       )}
                       {podeEditarLp === true && (

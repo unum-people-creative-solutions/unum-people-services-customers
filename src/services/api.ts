@@ -68,6 +68,8 @@ export interface PaginaDoConfigurador {
   slug: string;
   endereco: string;
   publicada: boolean;
+  // Criada e ainda sem a primeira publicação (lp-nova-pagina RF-NP-602).
+  aguarda_publicacao?: boolean;
 }
 
 export interface TenantResponse {

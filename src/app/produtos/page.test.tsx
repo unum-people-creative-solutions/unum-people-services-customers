@@ -388,16 +388,40 @@ describe("ProductsPage — página ainda não publicada (T-602)", () => {
     expect(await within(configurador).findByRole("link", { name: "Editar página" })).toHaveAttribute("href", expect.stringContaining("/minha-conta/editar?slug=loja"));
   });
 
-  it("as três juntas: um aviso de cada, um Visitar e o Editar nas três", async () => {
+  it("publicada true com aguarda_publicacao true: publicada vence, link Visitar e nenhum dos dois avisos", async () => {
+    const configurador = await abrirCom([{ slug: "loja", endereco: "https://loja.unumpages.app", publicada: true, aguarda_publicacao: true }]);
+
+    expect(within(configurador).getByRole("link", { name: "Visitar página" })).toHaveAttribute("href", "https://loja.unumpages.app");
+    expect(within(configurador).queryByText("Ainda não publicada")).not.toBeInTheDocument();
+    expect(within(configurador).queryByText("Página fora do ar")).not.toBeInTheDocument();
+  });
+
+  it("as três juntas: um aviso de cada, um Visitar e o Editar nas três, cada aviso na sua página", async () => {
     const configurador = await abrirCom([aguardando, foraDoArSemAChave, noAr]);
 
     expect(within(configurador).getAllByText("Ainda não publicada")).toHaveLength(1);
     expect(within(configurador).getAllByText("Página fora do ar")).toHaveLength(1);
     expect(within(configurador).getAllByRole("link", { name: /Visitar/ })).toHaveLength(1);
-    expect(within(configurador).getByRole("link", { name: "Visitar loja.unumpages.app" })).toHaveAttribute("href", "https://loja.unumpages.app");
+    const visitarLoja = within(configurador).getByRole("link", { name: "Visitar loja.unumpages.app" });
+    expect(visitarLoja).toHaveAttribute("href", "https://loja.unumpages.app");
 
-    expect(await within(configurador).findByRole("link", { name: "Editar nova.unumpages.app" })).toBeInTheDocument();
-    expect(within(configurador).getByRole("link", { name: "Editar antiga.unumpages.app" })).toBeInTheDocument();
-    expect(within(configurador).getByRole("link", { name: "Editar loja.unumpages.app" })).toBeInTheDocument();
+    const editarNova = await within(configurador).findByRole("link", { name: "Editar nova.unumpages.app" });
+    const editarAntiga = within(configurador).getByRole("link", { name: "Editar antiga.unumpages.app" });
+    const editarLoja = within(configurador).getByRole("link", { name: "Editar loja.unumpages.app" });
+
+    // Cada página mostra o aviso (ou o Visitar) e, logo depois, o Editar dela:
+    // a ordem no documento diz de qual página é cada aviso.
+    const ordemEsperada: [string, HTMLElement][] = [
+      ["Ainda não publicada", within(configurador).getByText("Ainda não publicada")],
+      ["Editar nova", editarNova],
+      ["Página fora do ar", within(configurador).getByText("Página fora do ar")],
+      ["Editar antiga", editarAntiga],
+      ["Visitar loja", visitarLoja],
+      ["Editar loja", editarLoja],
+    ];
+    const naOrdemDoDocumento = [...ordemEsperada].sort(([, a], [, b]) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+    );
+    expect(naOrdemDoDocumento.map(([nome]) => nome)).toEqual(ordemEsperada.map(([nome]) => nome));
   });
 });

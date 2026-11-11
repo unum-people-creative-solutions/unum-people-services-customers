@@ -1,8 +1,8 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type { PlanoEFaturas } from '@/types/cobranca';
-import { planoEFaturasDaPadaria } from '@/test/cobrancaFixtures';
+import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
+import { planoEFaturasDaPadaria, resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
 import { simularTela } from '@/test/telaLarga';
 
 // spec: cobranca-e-plano-do-cliente RF3-02, T54 (estrutura e estados, BP-T §9.1 e §9.5)
@@ -18,6 +18,14 @@ const tenant = vi.hoisted(() => ({
 }));
 vi.mock('@/contexts/TenantContext', () => ({ useTenant: () => tenant }));
 vi.mock('@/components/AppHeader', () => ({ default: () => <header>cabeçalho</header> }));
+
+const cobranca = vi.hoisted(() => ({
+  resumo: null as ResumoDeCobranca | null,
+  carregando: false,
+  erro: false,
+  recarregar: vi.fn(() => Promise.resolve()),
+}));
+vi.mock('@/contexts/CobrancaContext', () => ({ useCobranca: () => cobranca }));
 
 import PlanoPage from './page';
 
@@ -49,6 +57,7 @@ describe('/plano: estrutura e estados (T54)', () => {
     expect(await screen.findByRole('heading', { name: 'Seu plano' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Plano e faturas' })).toBeInTheDocument();
     expect(screen.getByText('O plano da Padaria Zé, a próxima fatura e o histórico.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Fatura em aberto' })).toBeInTheDocument();
     expect(servico.planoEFaturas).toHaveBeenCalledWith(ID_DA_PADARIA);
     expect(screen.getByRole('main')).not.toHaveAttribute('aria-busy', 'true');
   });
@@ -137,6 +146,45 @@ describe('/plano: estrutura e estados (T54)', () => {
     rerender(<PlanoPage />);
     expect(screen.queryByText('Presença')).not.toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true');
+  });
+});
+
+describe('/plano: "Fatura em aberto" (T56)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    simularTela(true);
+    tenant.activeTenantId = ID_DA_PADARIA;
+    tenant.activeTenantName = 'Padaria Zé';
+    tenant.isLoadingTenants = false;
+    cobranca.resumo = resumoEmAtraso;
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('pagamento da vencida confirmado: relê /me/faturas e mostra a fatura paga', async () => {
+    const comVencida: PlanoEFaturas = {
+      ...planoEFaturasDaPadaria,
+      faturas: [{ id: 'pay_2', valor: 39.9, vencimento: '2026-11-05', situacao: 'vencida', link: 'https://www.asaas.com/i/pay2' }],
+    };
+    const depois: PlanoEFaturas = {
+      ...planoEFaturasDaPadaria,
+      faturas: [{ id: 'pay_2', valor: 39.9, vencimento: '2026-11-05', situacao: 'paga', pago_em: '2026-11-10', link: 'https://www.asaas.com/i/pay2' }],
+    };
+    servico.planoEFaturas.mockResolvedValueOnce(comVencida).mockResolvedValueOnce(depois);
+    const { rerender } = render(<PlanoPage />);
+    const pagar = await screen.findByRole('link', { name: /Pagar fatura/ });
+    pagar.addEventListener('click', (e) => e.preventDefault(), { once: true });
+    await act(async () => {
+      fireEvent.click(pagar);
+    });
+    expect(screen.getByText('Aguardando a confirmação do pagamento')).toBeInTheDocument();
+
+    cobranca.resumo = resumoEmDia;
+    await act(async () => {
+      rerender(<PlanoPage />);
+    });
+    expect(servico.planoEFaturas).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText('Nenhuma fatura em aberto.')).toBeInTheDocument();
   });
 });
 

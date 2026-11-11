@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import AppHeader from '@/components/AppHeader';
+import FaturaEmAberto from '@/components/plano/FaturaEmAberto';
 import SeuPlano from '@/components/plano/SeuPlano';
 import { useTenant } from '@/contexts/TenantContext';
 import { ehRecusaPorPermissao } from '@/services/api';
@@ -57,6 +58,11 @@ export default function PlanoPage() {
     setEstado({ status: 'carregando' });
     void ler(activeTenantId);
   }, [isLoadingTenants, activeTenantId, ler]);
+
+  // Pagamento confirmado: relê com os dados atuais ainda na tela.
+  const relerAposPagamento = useCallback(() => {
+    if (activeTenantId) void ler(activeTenantId);
+  }, [activeTenantId, ler]);
 
   const tentarDeNovo = () => {
     setEstado({ status: 'carregando' });
@@ -114,6 +120,11 @@ export default function PlanoPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <SeuPlano plano={estado.dados.plano} />
+            <FaturaEmAberto
+              faturas={estado.dados.faturas}
+              formaDePagamento={estado.dados.plano.forma_de_pagamento}
+              aoConfirmarPagamento={relerAposPagamento}
+            />
           </div>
         )}
       </main>

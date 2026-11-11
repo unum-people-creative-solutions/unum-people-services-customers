@@ -299,8 +299,8 @@ describe("TermsPage (TASK-FE-CUST-004)", () => {
         activeTenantId: "t-2",
         activeTenantName: "Clínica Dois",
         availableTenants: [
-          { id: "t-1", nome_negocio: "Clínica Um" },
-          { id: "t-2", nome_negocio: "Clínica Dois" },
+          { id: "t-1", nome_negocio: "Clínica Um", enabled_services: [] },
+          { id: "t-2", nome_negocio: "Clínica Dois", enabled_services: [] },
         ],
         isMultiTenant: true,
         switchTenant: vi.fn(),

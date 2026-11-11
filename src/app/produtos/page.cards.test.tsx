@@ -1,7 +1,9 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import ProductsPage from "./page";
 import { TenantService, AcessosService, type TenantResponse } from "@/services/api";
+import type { PlanoParaTroca } from "@/types/planos";
+import { basicoDowngrade, captacaoUpgrade, planosDaPadaria, presencaAtual } from "@/test/planosFixtures";
 
 // "Configurador de páginas" é um card à parte do "Site personalizado", e o
 // site personalizado só aparece para quem tem um (domínio próprio em site_urls).
@@ -15,9 +17,27 @@ vi.mock("@/services/api", () => ({
   },
 }));
 vi.mock("@/lib/pkce", () => ({ logoutFromHostedUI: vi.fn() }));
+
+// cobranca-e-plano-do-cliente RF5-03 (T86): os cartões CRM e Blog leem GET /me/planos.
+// Fora do bloco do T86 a leitura falha, e os cartões ficam com "Não incluso neste plano".
+const planosServico = vi.hoisted(() => ({
+  listar: vi.fn().mockRejectedValue({ response: { status: 500, data: { error: "internal_error" } } }),
+  mudar: vi.fn(),
+}));
+vi.mock("@/services/planos", () => ({ PlanosService: planosServico }));
 vi.mock("next/navigation", () => ({ usePathname: vi.fn().mockReturnValue("/produtos") }));
 vi.mock("@/contexts/TenantContext", () => ({
   useTenant: vi.fn(() => ({ activeTenantId: "t1", availableTenants: [], isMultiTenant: false, switchTenant: vi.fn(), isLoadingTenants: false })),
+}));
+
+// cobranca-e-plano-do-cliente RF2-34: a página lê o resumo de cobrança do CobrancaProvider.
+vi.mock("@/contexts/CobrancaContext", () => ({
+  useCobranca: vi.fn(() => ({
+    resumo: { situacao: "em_dia", fatura: null, ferramentas_bloqueadas: [], pode_gerir: true },
+    carregando: false,
+    erro: false,
+    recarregar: vi.fn(),
+  })),
 }));
 
 function acessosComLp(permissoes: string[]) {
@@ -127,5 +147,72 @@ describe("Meus Produtos: Configurador de páginas e Site personalizado", () => {
     await abrir(tenant({}));
     expect(screen.queryByText(/site institucional/i)).not.toBeInTheDocument();
     expect(screen.getByText(/status dos seus sites/i)).toBeInTheDocument();
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF5-03, T86 (BP-T §11.7 e UI-8): sugestões nos cartões
+// CRM e Blog de /produtos.
+describe("Meus Produtos: CRM e Blog fora do plano (T86)", () => {
+  const erroDosPlanos = { response: { status: 500, data: { error: "internal_error" } } };
+  // Conta no Básico (só site): Presença tem blog; Captação tem blog e CRM.
+  const basicoAtual: PlanoParaTroca = { ...basicoDowngrade, direcao: "atual" };
+  const presencaUpgrade: PlanoParaTroca = { ...presencaAtual, direcao: "upgrade" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+  });
+  afterEach(() => {
+    planosServico.listar.mockRejectedValue(erroDosPlanos);
+  });
+
+  it("CRM fora do plano com upgrade que tem CRM: \"Fora do seu plano\", \"Disponível no plano Captação\" e \"Ver planos\"", async () => {
+    planosServico.listar.mockResolvedValue(planosDaPadaria.planos);
+    await abrir(tenant({ enabled_services: ["site", "blog"] }));
+
+    const crm = card("CRM Unum");
+    expect(within(crm).getByText("Fora do seu plano")).toBeInTheDocument();
+    expect(await within(crm).findByText("Disponível no plano Captação")).toBeInTheDocument();
+    expect(within(crm).getByRole("link", { name: "Ver planos" })).toHaveAttribute("href", "/plano/mudar");
+    expect(within(crm).queryByText("Não incluso neste plano")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bloqueado")).not.toBeInTheDocument();
+    expect(planosServico.listar).toHaveBeenCalledTimes(1);
+    expect(planosServico.listar).toHaveBeenCalledWith("t1");
+  });
+
+  it("cada cartão cita o upgrade mais barato com o próprio serviço", async () => {
+    planosServico.listar.mockResolvedValue([basicoAtual, presencaUpgrade, captacaoUpgrade]);
+    await abrir(tenant({ enabled_services: ["site"] }));
+
+    expect(await within(card("Blog Admin")).findByText("Disponível no plano Presença")).toBeInTheDocument();
+    expect(within(card("Blog Admin")).getByRole("link", { name: "Ver planos" })).toHaveAttribute("href", "/plano/mudar");
+    expect(within(card("CRM Unum")).getByText("Disponível no plano Captação")).toBeInTheDocument();
+    expect(within(card("Blog Admin")).getByText("Fora do seu plano")).toBeInTheDocument();
+    expect(screen.queryByText("Bloqueado")).not.toBeInTheDocument();
+  });
+
+  it("sem upgrade com o serviço: \"Não incluso neste plano\", sem link", async () => {
+    planosServico.listar.mockResolvedValue([basicoAtual, presencaUpgrade]);
+    await abrir(tenant({ enabled_services: ["site"] }));
+
+    const crm = card("CRM Unum");
+    await waitFor(() => expect(within(card("Blog Admin")).getByRole("link", { name: "Ver planos" })).toBeInTheDocument());
+    expect(within(crm).getByText("Fora do seu plano")).toBeInTheDocument();
+    expect(within(crm).getByText("Não incluso neste plano")).toBeInTheDocument();
+    expect(within(crm).queryByRole("link", { name: "Ver planos" })).not.toBeInTheDocument();
+    expect(within(crm).queryByText(/Disponível no plano/)).not.toBeInTheDocument();
+  });
+
+  it("GET /me/planos com erro: \"Não incluso neste plano\", sem link", async () => {
+    planosServico.listar.mockRejectedValue(erroDosPlanos);
+    await abrir(tenant({ enabled_services: ["site"] }));
+    await waitFor(() => expect(planosServico.listar).toHaveBeenCalled());
+
+    for (const nome of ["CRM Unum", "Blog Admin"]) {
+      expect(within(card(nome)).getByText("Fora do seu plano")).toBeInTheDocument();
+      expect(within(card(nome)).getByText("Não incluso neste plano")).toBeInTheDocument();
+      expect(within(card(nome)).queryByRole("link", { name: "Ver planos" })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText("Bloqueado")).not.toBeInTheDocument();
   });
 });

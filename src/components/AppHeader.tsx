@@ -69,6 +69,15 @@ export default function AppHeader() {
               Meus Produtos
             </a>
           )}
+          {/* cobranca-e-plano-do-cliente RF3-02: para todo mundo da empresa; a API decide o acesso. */}
+          {pathname !== "/plano" && (
+            <a
+              href="/plano"
+              className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition"
+            >
+              Plano e faturas
+            </a>
+          )}
           {podeGerirUsuarios && pathname !== "/usuarios" && (
             <a
               href="/usuarios"

@@ -63,3 +63,12 @@ describe('textoDoIndisponivel (BP-T §11.3)', () => {
     );
   });
 });
+
+// spec: cobranca-e-plano-do-cliente RF6-03 (D-4): resultado gravado pela OPS-601 no sandbox
+// (ops-601-sandbox.md): a cobrança vencida não muda de forma → B.
+describe('RESULTADO_D4', () => {
+  it('é B', async () => {
+    const { RESULTADO_D4 } = await import('./planosTexto');
+    expect(RESULTADO_D4).toBe('B');
+  });
+});

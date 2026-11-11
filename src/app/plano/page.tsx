@@ -8,19 +8,29 @@ import AppHeader from '@/components/AppHeader';
 import FaturaEmAberto from '@/components/plano/FaturaEmAberto';
 import HistoricoDeFaturas from '@/components/plano/HistoricoDeFaturas';
 import SeuPlano from '@/components/plano/SeuPlano';
+import TrocarFormaDePagamento from '@/components/plano/TrocarFormaDePagamento';
 import SubscriptionCancel from '@/components/SubscriptionCancel';
+import { useCobranca } from '@/contexts/CobrancaContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { nomeDaForma } from '@/lib/cobrancaTexto';
+import { RESULTADO_D4 } from '@/lib/planosTexto';
 import { ehRecusaPorPermissao } from '@/services/api';
 import { FaturasService } from '@/services/cobranca';
 import { PlanosService } from '@/services/planos';
-import type { PlanoEFaturas } from '@/types/cobranca';
-import type { PlanoParaTroca } from '@/types/planos';
+import type { PlanoEFaturas, SituacaoDeCobranca } from '@/types/cobranca';
+import type { FormaDePagamento, PlanoParaTroca } from '@/types/planos';
 
 type Estado =
   | { status: 'carregando' }
   | { status: 'pronto'; dados: PlanoEFaturas }
   | { status: 'erro' }
   | { status: 'proibido' };
+
+// RF6-03 (D-4, resultado B): com fatura em atraso, a forma de pagamento não se troca. A API
+// recusa também (409 conta_nao_ativa), mesmo que a tela erre.
+// Decisão do executor: fora_do_ar também é atraso por cobrança (as datas do §4.1 vêm nele).
+const SITUACOES_EM_ATRASO: SituacaoDeCobranca[] = ['em_atraso', 'bloqueado', 'fora_do_ar'];
+const TROCA_EM_ATRASO = 'Pague a fatura em atraso antes de trocar a forma de pagamento.';
 
 function BlocoCarregando() {
   return (
@@ -34,6 +44,7 @@ function BlocoCarregando() {
 
 export default function PlanoPage() {
   const { activeTenantId, activeTenantName, isLoadingTenants } = useTenant();
+  const { resumo } = useCobranca();
   const [estado, setEstado] = useState<Estado>({ status: 'carregando' });
   // Só a leitura mais recente mexe no estado: a resposta atrasada de outra empresa é descartada.
   const requisicaoRef = useRef(0);
@@ -44,6 +55,9 @@ export default function PlanoPage() {
   // fica null: o bloco "Seu plano" sai sem a sugestão e sem o botão.
   const [planos, setPlanos] = useState<PlanoParaTroca[] | null>(null);
   const planosRef = useRef(0);
+  // Fase 6 (RF6-02, BP-T §12.2): caixa da forma de pagamento e o aviso depois da troca.
+  const [trocandoForma, setTrocandoForma] = useState(false);
+  const [formaTrocada, setFormaTrocada] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoadingTenants || !activeTenantId) return;
@@ -62,6 +76,8 @@ export default function PlanoPage() {
     setEstado({ status: 'carregando' });
     setPlanoTrocado(null);
     setPlanos(null);
+    setTrocandoForma(false);
+    setFormaTrocada(null);
   }
 
   const lerPlanos = useCallback(async (tenantId: string) => {
@@ -100,6 +116,20 @@ export default function PlanoPage() {
     if (activeTenantId) void ler(activeTenantId);
   }, [activeTenantId, ler]);
 
+  // 204: a caixa fecha (o Modal devolve o foco ao botão), a página relê com os dados atuais
+  // ainda na tela e mostra o aviso.
+  const aoTrocarForma = useCallback(
+    (forma: FormaDePagamento) => {
+      setTrocandoForma(false);
+      setFormaTrocada(nomeDaForma(forma));
+      if (activeTenantId) void ler(activeTenantId);
+    },
+    [activeTenantId, ler],
+  );
+
+  const trocaDeFormaBloqueadaPor =
+    RESULTADO_D4 === 'B' && resumo !== null && SITUACOES_EM_ATRASO.includes(resumo.situacao) ? TROCA_EM_ATRASO : null;
+
   const tentarDeNovo = () => {
     setEstado({ status: 'carregando' });
     void ler(activeTenantId);
@@ -128,6 +158,16 @@ export default function PlanoPage() {
           >
             <CheckCircle size={20} aria-hidden="true" className="shrink-0" />
             <p className="text-sm font-semibold">{`Pronto! Sua conta está no plano ${planoTrocado}.`}</p>
+          </div>
+        )}
+
+        {formaTrocada && (
+          <div
+            role="status"
+            className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex gap-3 items-center text-green-800"
+          >
+            <CheckCircle size={20} aria-hidden="true" className="shrink-0" />
+            <p className="text-sm font-semibold">{`Forma de pagamento trocada para ${formaTrocada}.`}</p>
           </div>
         )}
 
@@ -169,7 +209,27 @@ export default function PlanoPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            <SeuPlano plano={estado.dados.plano} podeGerir={estado.dados.pode_gerir} planos={planos} />
+            <SeuPlano
+              plano={estado.dados.plano}
+              podeGerir={estado.dados.pode_gerir}
+              planos={planos}
+              aoTrocarFormaDePagamento={() => {
+                setFormaTrocada(null);
+                setTrocandoForma(true);
+              }}
+              trocaDeFormaBloqueadaPor={trocaDeFormaBloqueadaPor}
+            />
+            <TrocarFormaDePagamento
+              aberto={trocandoForma}
+              onFechar={() => setTrocandoForma(false)}
+              onTrocou={aoTrocarForma}
+              tenantId={activeTenantId}
+              formaAtual={estado.dados.plano.forma_de_pagamento}
+              proximoVencimento={estado.dados.plano.proximo_vencimento}
+              faturaAVencer={estado.dados.faturas.find((f) => f.situacao === 'a_vencer')}
+              faturaVencida={estado.dados.faturas.find((f) => f.situacao === 'vencida')}
+              resultadoD4={RESULTADO_D4}
+            />
             <FaturaEmAberto
               faturas={estado.dados.faturas}
               formaDePagamento={estado.dados.plano.forma_de_pagamento}

@@ -6,8 +6,10 @@ import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 import {
   planoEFaturasDaPadaria,
   planoEFaturasDaPadariaSemGerir,
+  resumoBloqueado,
   resumoEmAtraso,
   resumoEmDia,
+  resumoForaDoAr,
 } from '@/test/cobrancaFixtures';
 import { simularTela } from '@/test/telaLarga';
 import { captacaoUpgrade, planosDaPadaria, planosSoOAtual, presencaAtual } from '@/test/planosFixtures';
@@ -26,6 +28,10 @@ const planosServico = vi.hoisted(() => ({
   mudar: vi.fn(),
 }));
 vi.mock('@/services/planos', () => ({ PlanosService: planosServico }));
+
+// Fase 6 (T95): POST /me/forma-de-pagamento.
+const formaServico = vi.hoisted(() => ({ trocar: vi.fn() }));
+vi.mock('@/services/formaDePagamento', () => ({ FormaDePagamentoService: formaServico }));
 
 const tenant = vi.hoisted(() => ({
   activeTenantId: '3f2b8c1e-9d4a-4e7b-a6c5-1b2d3e4f5a6b',
@@ -345,14 +351,14 @@ describe('/plano: "Seu plano" (T55)', () => {
   });
 
   // Fase 5 (T85, TASK-FIX-F5-02): para quem gere, "Mudar de plano" é um link, não um botão.
-  // "Trocar forma de pagamento" só chega na fase 6.
-  it('"Mudar de plano" só como link para /plano/mudar; nenhum "Trocar forma de pagamento" nesta fase', async () => {
+  // Fase 6 (T95, BP-T §9.2): o botão "Trocar forma de pagamento" passou a existir para quem
+  // gere; presença e ausência ficam no bloco do T95. Aqui: nunca é link.
+  it('"Mudar de plano" só como link para /plano/mudar; "Trocar forma de pagamento" nunca é link', async () => {
     render(<PlanoPage />);
     const secao = await secaoSeuPlano();
     expect(screen.queryByRole('button', { name: /Mudar de plano/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Mudar de plano/ })).toHaveLength(1);
     expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
-    expect(screen.queryByRole('button', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
   });
 });
@@ -495,5 +501,117 @@ describe('/plano: sugestão e "Mudar de plano" (T85)', () => {
     const secao = await secaoSeuPlano();
     await act(async () => {});
     expect(secao.queryByRole('link', { name: 'Mudar de plano' })).not.toBeInTheDocument();
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF6-02, RF6-03, T95 (BP-T §12.1, §12.2, §12.3): botão
+// "Trocar forma de pagamento" no bloco "Seu plano" e a D-4 com o resultado gravado (B).
+describe('/plano: "Trocar forma de pagamento" (T95)', () => {
+  const EM_ATRASO = 'Pague a fatura em atraso antes de trocar a forma de pagamento.';
+  const comBoleto: PlanoEFaturas = {
+    ...planoEFaturasDaPadaria,
+    plano: { ...planoEFaturasDaPadaria.plano, forma_de_pagamento: 'BOLETO' },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    cancelamento.getPreview.mockResolvedValue(PREVIA_QUE_CANCELA);
+    simularTela(true);
+    tenant.activeTenantId = ID_DA_PADARIA;
+    tenant.activeTenantName = 'Padaria Zé';
+    tenant.isLoadingTenants = false;
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadaria);
+    cobranca.resumo = resumoEmDia;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    cobranca.resumo = null;
+  });
+
+  async function secaoSeuPlano() {
+    const titulo = await screen.findByRole('heading', { name: 'Seu plano' });
+    return within(titulo.closest('section') as HTMLElement);
+  }
+
+  it('quem gere: botão "Trocar forma de pagamento" ativo no bloco "Seu plano"', async () => {
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    expect(secao.getByRole('button', { name: 'Trocar forma de pagamento' })).toBeEnabled();
+  });
+
+  it('sem pode_gerir: nenhum botão "Trocar forma de pagamento"', async () => {
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadariaSemGerir);
+    render(<PlanoPage />);
+    await secaoSeuPlano();
+    expect(screen.queryByRole('button', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
+  });
+
+  it('o botão abre a caixa com a forma atual do contrato e a fatura a vencer', async () => {
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    await userEvent.click(secao.getByRole('button', { name: 'Trocar forma de pagamento' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Trocar forma de pagamento' });
+    expect(within(dialogo).getByRole('radio', { name: 'Pix (atual)' })).toBeChecked();
+    await userEvent.click(within(dialogo).getByRole('radio', { name: 'Boleto' }));
+    expect(
+      within(dialogo).getByText('A fatura de R$ 39,90 que vence em 05/12, já gerada, também passa para boleto.'),
+    ).toBeInTheDocument();
+  });
+
+  it('sucesso: relê /me/faturas, "Forma de pagamento trocada para Boleto." em status e o foco volta ao botão', async () => {
+    formaServico.trocar.mockResolvedValue(undefined);
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    const botao = secao.getByRole('button', { name: 'Trocar forma de pagamento' });
+    await userEvent.click(botao);
+    const dialogo = screen.getByRole('dialog', { name: 'Trocar forma de pagamento' });
+    await userEvent.click(within(dialogo).getByRole('radio', { name: 'Boleto' }));
+    servico.planoEFaturas.mockResolvedValue(comBoleto);
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Trocar para Boleto' }));
+
+    expect(formaServico.trocar).toHaveBeenCalledWith(ID_DA_PADARIA, 'BOLETO');
+    expect(await screen.findByText('Forma de pagamento trocada para Boleto.')).toBeInTheDocument();
+    expect(screen.getByText('Forma de pagamento trocada para Boleto.').closest('[role="status"]')).not.toBeNull();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(servico.planoEFaturas).toHaveBeenCalledTimes(2);
+    expect(await secao.findByText('Forma de pagamento: Boleto')).toBeInTheDocument();
+    expect(secao.getByRole('button', { name: 'Trocar forma de pagamento' })).toHaveFocus();
+  });
+
+  it('erro na troca: nada muda na página, o erro fica no diálogo', async () => {
+    formaServico.trocar.mockRejectedValue({ response: { status: 500, data: { error: 'internal_error' } } });
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    await userEvent.click(secao.getByRole('button', { name: 'Trocar forma de pagamento' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Trocar forma de pagamento' });
+    await userEvent.click(within(dialogo).getByRole('radio', { name: 'Boleto' }));
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Trocar para Boleto' }));
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+      'Não foi possível trocar agora. Nada foi alterado. Tente de novo em alguns minutos.',
+    );
+    expect(screen.queryByText(/Forma de pagamento trocada/)).not.toBeInTheDocument();
+    expect(servico.planoEFaturas).toHaveBeenCalledTimes(1);
+    expect(secao.getByText('Forma de pagamento: Pix')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['em_atraso', resumoEmAtraso],
+    ['bloqueado', resumoBloqueado],
+    ['fora_do_ar', resumoForaDoAr],
+  ])('resultado B com %s: botão desabilitado com o motivo como descrição acessível', async (_situacao, resumo) => {
+    cobranca.resumo = resumo;
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    const botao = secao.getByRole('button', { name: 'Trocar forma de pagamento' });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAccessibleDescription(EM_ATRASO);
+    expect(secao.getByText(EM_ATRASO)).toBeInTheDocument();
+  });
+
+  it('em dia: sem o motivo do atraso', async () => {
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    expect(secao.queryByText(EM_ATRASO)).not.toBeInTheDocument();
   });
 });

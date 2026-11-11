@@ -56,3 +56,9 @@ export function textoDoIndisponivel(motivo: MotivoIndisponivel, plano: PlanoPara
       return `Sua conta tem mais usuários do que este plano permite (${plano.usuarios ?? 'sem limite'}). Remova pessoas em Usuários para escolher este plano.`;
   }
 }
+
+// cobranca-e-plano-do-cliente RF6-03 (D-4, BP-T §12.3): resultado da OPS-601 no sandbox do
+// Asaas (spec/features/unum-people-services/cobranca-e-plano-do-cliente/ops-601-sandbox.md,
+// registrado em validation-f6.md §D-4). B: updatePendingPayments muda as faturas pendentes, mas
+// a vencida continua na forma antiga; com fatura em atraso, a troca fica bloqueada.
+export const RESULTADO_D4: 'A' | 'B' = 'B';

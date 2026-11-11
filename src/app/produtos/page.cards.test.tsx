@@ -20,6 +20,16 @@ vi.mock("@/contexts/TenantContext", () => ({
   useTenant: vi.fn(() => ({ activeTenantId: "t1", availableTenants: [], isMultiTenant: false, switchTenant: vi.fn(), isLoadingTenants: false })),
 }));
 
+// cobranca-e-plano-do-cliente RF2-34: a página lê o resumo de cobrança do CobrancaProvider.
+vi.mock("@/contexts/CobrancaContext", () => ({
+  useCobranca: vi.fn(() => ({
+    resumo: { situacao: "em_dia", fatura: null, ferramentas_bloqueadas: [], pode_gerir: true },
+    carregando: false,
+    erro: false,
+    recarregar: vi.fn(),
+  })),
+}));
+
 function acessosComLp(permissoes: string[]) {
   return {
     tenant_id: "t1",

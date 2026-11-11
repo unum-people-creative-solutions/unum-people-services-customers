@@ -17,6 +17,8 @@ import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
 import SubscriptionCancel from "@/components/SubscriptionCancel";
+import { useCobranca } from "@/contexts/CobrancaContext";
+import { nomeDaSituacao } from "@/lib/cobrancaTexto";
 
 // RF-5A-28: o editor de cada página do configurador abre pelo slug dela.
 function editorDaPagina(slug: string): string {
@@ -40,6 +42,7 @@ function temPermissao(estado: EstadoAcessos, ferramentaId: string, permissao: st
 
 export default function ProductsPage() {
   const { activeTenantId, isLoadingTenants } = useTenant();
+  const cobranca = useCobranca();
   const [tenant, setTenant] = useState<TenantResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +137,14 @@ export default function ProductsPage() {
             <Settings className="text-white" size={24} />
             <div>
               <p className="text-xs text-white/60 uppercase font-bold tracking-wider">Status da Conta</p>
-              <p className="text-sm font-bold uppercase">{tenant?.status || "Ativo"}</p>
+              {/* cobranca-e-plano-do-cliente RF2-34: nome legível pelo resumo de cobrança. */}
+              {cobranca.carregando ? (
+                <p className="text-sm font-bold" aria-busy="true">…</p>
+              ) : (
+                <p className="text-sm font-bold">
+                  {cobranca.resumo ? nomeDaSituacao(cobranca.resumo, tenant?.status ?? "") : "Não disponível"}
+                </p>
+              )}
             </div>
           </div>
         </div>

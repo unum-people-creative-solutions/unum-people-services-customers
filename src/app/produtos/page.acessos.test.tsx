@@ -26,6 +26,16 @@ vi.mock("@/contexts/TenantContext", () => ({
   })),
 }));
 
+// cobranca-e-plano-do-cliente RF2-34: a página lê o resumo de cobrança do CobrancaProvider.
+vi.mock("@/contexts/CobrancaContext", () => ({
+  useCobranca: vi.fn(() => ({
+    resumo: { situacao: "em_dia", fatura: null, ferramentas_bloqueadas: [], pode_gerir: true },
+    carregando: false,
+    erro: false,
+    recarregar: vi.fn(),
+  })),
+}));
+
 type Papeis = { crm: string[]; blog: string[]; lp: string[] };
 
 function acessos({ crm, blog, lp }: Papeis, naoContratadas: string[] = []): MeusAcessos {

@@ -47,6 +47,19 @@ export default function TermsPage() {
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // cobranca-e-plano-do-cliente RF5-03 (BP-T §11.6, DV-36): nome do plano novo, gravado pela
+  // troca de plano no sessionStorage da empresa. Nada vem da URL; lido uma vez e apagado.
+  const [planoNovo, setPlanoNovo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isLoadingTenants || !activeTenantId) return;
+    const chave = `plano-novo:${activeTenantId}`;
+    const nome = sessionStorage.getItem(chave);
+    if (nome) {
+      setPlanoNovo(nome);
+      sessionStorage.removeItem(chave);
+    }
+  }, [isLoadingTenants, activeTenantId]);
 
   const fetchTerms = async (tenantId?: string) => {
     try {
@@ -154,6 +167,11 @@ export default function TermsPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-8">
+        {planoNovo && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm font-semibold text-gray-900">
+            <p>{`Seu plano mudou. Leia e aceite o termo do plano ${planoNovo} para continuar usando o CRM e o blog.`}</p>
+          </div>
+        )}
         <div className="mb-8">
           <h2 className="text-2xl font-black text-gray-900 md:text-3xl">Termos Legais e Consentimentos</h2>
           <p className="text-gray-600 mt-2">

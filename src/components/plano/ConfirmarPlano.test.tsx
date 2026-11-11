@@ -1,15 +1,23 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { TermStatusItem } from '@/services/api';
 import type { PlanoDoCliente } from '@/types/cobranca';
 import type { ErroDaTroca } from '@/types/planos';
 import { planoEFaturasDaPadaria } from '@/test/cobrancaFixtures';
 import { captacaoUpgrade, presencaAtual } from '@/test/planosFixtures';
 
-// spec: cobranca-e-plano-do-cliente RF5-03, T83 (confirmação da troca, BP-T §11.5).
+// spec: cobranca-e-plano-do-cliente RF5-03, T83 (confirmação da troca, BP-T §11.5) e T84
+// (termo do plano novo depois da troca, BP-T §11.6, D-2, DV-36).
 
 const planos = vi.hoisted(() => ({ listar: vi.fn(), mudar: vi.fn() }));
 vi.mock('@/services/planos', () => ({ PlanosService: planos }));
+
+const termos = vi.hoisted(() => ({ getStatus: vi.fn(), accept: vi.fn() }));
+vi.mock('@/services/api', async () => {
+  const real = await vi.importActual<typeof import('@/services/api')>('@/services/api');
+  return { ...real, TermsService: termos };
+});
 
 import ConfirmarPlano from './ConfirmarPlano';
 
@@ -141,5 +149,78 @@ describe('ConfirmarPlano (T83)', () => {
     const dialogo = abrir();
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar a troca' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(TEXTO_GENERICO);
+  });
+});
+
+const termoDeContratacao: TermStatusItem = {
+  type: 'contratacao_servico',
+  term_id: 'termo-captacao',
+  term_name: 'Contrato do plano Captação',
+  required_version: 1,
+  can_accept: true,
+  document_url: 'https://example.com/termo-captacao.html',
+};
+
+describe('ConfirmarPlano: depois do 204 (T84)', () => {
+  let locationOriginal: Location;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    planos.mudar.mockResolvedValue({ ok: true });
+    locationOriginal = window.location;
+    // @ts-expect-error troca a location do jsdom por um objeto que guarda o destino.
+    delete window.location;
+    // @ts-expect-error idem
+    window.location = { href: '' };
+  });
+
+  afterEach(() => {
+    // @ts-expect-error devolve a location do jsdom.
+    window.location = locationOriginal;
+  });
+
+  async function confirmar() {
+    const dialogo = abrir();
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar a troca' }));
+  }
+
+  it('termo de contratação pendente: grava o nome do plano e vai para /termos?return_to=/plano', async () => {
+    termos.getStatus.mockResolvedValue({ pending: [termoDeContratacao], accepted: [] });
+    await confirmar();
+    await waitFor(() => expect(window.location.href).toBe('/termos?return_to=/plano'));
+    expect(termos.getStatus).toHaveBeenCalledWith(ID);
+    expect(sessionStorage.getItem('plano-novo:t1')).toBe('Captação');
+    expect(sessionStorage.getItem('plano-trocado:t1')).toBe('Captação');
+  });
+
+  it('sem termo pendente: vai para /plano, só com o aviso de "Pronto!" gravado', async () => {
+    termos.getStatus.mockResolvedValue({ pending: [], accepted: [] });
+    await confirmar();
+    await waitFor(() => expect(window.location.href).toBe('/plano'));
+    expect(sessionStorage.getItem('plano-novo:t1')).toBeNull();
+    expect(sessionStorage.getItem('plano-trocado:t1')).toBe('Captação');
+  });
+
+  it('pendente de outro tipo não leva a /termos', async () => {
+    termos.getStatus.mockResolvedValue({ pending: [{ ...termoDeContratacao, type: 'termos_uso' }], accepted: [] });
+    await confirmar();
+    await waitFor(() => expect(window.location.href).toBe('/plano'));
+  });
+
+  it('erro ao ler os termos: vai para /termos?return_to=/plano (lá a pessoa vê o estado real)', async () => {
+    termos.getStatus.mockRejectedValue(new Error('Network Error'));
+    await confirmar();
+    await waitFor(() => expect(window.location.href).toBe('/termos?return_to=/plano'));
+    expect(sessionStorage.getItem('plano-trocado:t1')).toBe('Captação');
+  });
+
+  it('409: não lê os termos nem sai da tela', async () => {
+    planos.mudar.mockResolvedValue({ ok: false, erro: 'so_upgrade' });
+    await confirmar();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(termos.getStatus).not.toHaveBeenCalled();
+    expect(window.location.href).toBe('');
+    expect(sessionStorage.getItem('plano-trocado:t1')).toBeNull();
   });
 });

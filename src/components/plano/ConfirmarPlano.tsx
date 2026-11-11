@@ -7,7 +7,7 @@ import { AlertCircle, Info } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { formatarDataCompleta, formatarReais } from '@/lib/cobrancaTexto';
 import { diferencasDoPlano, textoDoIndisponivel } from '@/lib/planosTexto';
-import { ehRecusaPorPermissao, MENSAGEM_SEM_PERMISSAO } from '@/services/api';
+import { ehRecusaPorPermissao, MENSAGEM_SEM_PERMISSAO, TermsService } from '@/services/api';
 import { PlanosService } from '@/services/planos';
 import type { PlanoDoCliente } from '@/types/cobranca';
 import type { ErroDaTroca, PlanoParaTroca } from '@/types/planos';
@@ -30,6 +30,22 @@ function textoDoErro(erro: ErroDaTroca, novo: PlanoParaTroca): string {
       // DV-35: sem texto próprio, o genérico.
       return TEXTO_GENERICO;
   }
+}
+
+const PARA_O_TERMO = '/termos?return_to=/plano';
+
+// Termo de contratação pendente → /termos (com a linha do plano novo); sem ele, /plano.
+// Erro ao ler os termos → /termos, onde a pessoa vê o estado real. Em todos, o "Pronto!".
+async function destinoDepoisDaTroca(tenantId: string, nome: string): Promise<string> {
+  sessionStorage.setItem(`plano-trocado:${tenantId}`, nome);
+  try {
+    const status = await TermsService.getStatus(tenantId);
+    if (!status.pending.some((termo) => termo.type === 'contratacao_servico')) return '/plano';
+  } catch (err) {
+    console.error('Erro ao conferir os termos depois da troca de plano:', err);
+  }
+  sessionStorage.setItem(`plano-novo:${tenantId}`, nome);
+  return PARA_O_TERMO;
 }
 
 const maiuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
@@ -86,8 +102,9 @@ export default function ConfirmarPlano({
       falhar(ehRecusaPorPermissao(err) ? MENSAGEM_SEM_PERMISSAO : TEXTO_GENERICO);
       return;
     }
-    // Trocado: a página sai daqui (o diálogo continua travado até a navegação).
-    window.location.href = '/plano';
+    // Trocado (D-2, DV-36): o termo do plano novo pode ter ficado pendente. Só o nome do
+    // plano vai para o sessionStorage; o diálogo continua travado até a navegação.
+    window.location.href = await destinoDepoisDaTroca(tenantId, novo.nome);
   }
 
   return (

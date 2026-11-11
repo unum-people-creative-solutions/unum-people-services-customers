@@ -3,7 +3,7 @@
 // cobranca-e-plano-do-cliente RF3-02 (BP-T §9): "Plano e faturas" da empresa ativa,
 // lido de GET /me/faturas. A página não decide autorização: mostra o que a API mandou.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import AppHeader from '@/components/AppHeader';
 import FaturaEmAberto from '@/components/plano/FaturaEmAberto';
 import HistoricoDeFaturas from '@/components/plano/HistoricoDeFaturas';
@@ -35,12 +35,26 @@ export default function PlanoPage() {
   const [estado, setEstado] = useState<Estado>({ status: 'carregando' });
   // Só a leitura mais recente mexe no estado: a resposta atrasada de outra empresa é descartada.
   const requisicaoRef = useRef(0);
+  // cobranca-e-plano-do-cliente RF5-03 (BP-T §11.5, DV-36): plano trocado, gravado pela
+  // confirmação da troca. Aparece uma vez e a chave é apagada.
+  const [planoTrocado, setPlanoTrocado] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isLoadingTenants || !activeTenantId) return;
+    const chave = `plano-trocado:${activeTenantId}`;
+    const nome = sessionStorage.getItem(chave);
+    if (nome) {
+      setPlanoTrocado(nome);
+      sessionStorage.removeItem(chave);
+    }
+  }, [isLoadingTenants, activeTenantId]);
 
   // Empresa trocada: os dados da anterior somem já neste render.
   const [tenantVisto, setTenantVisto] = useState(activeTenantId);
   if (activeTenantId !== tenantVisto) {
     setTenantVisto(activeTenantId);
     setEstado({ status: 'carregando' });
+    setPlanoTrocado(null);
   }
 
   const ler = useCallback(async (tenantId: string) => {
@@ -86,6 +100,16 @@ export default function PlanoPage() {
             O plano da {nomeDaEmpresa}, a próxima fatura e o histórico.
           </p>
         </div>
+
+        {planoTrocado && (
+          <div
+            role="status"
+            className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex gap-3 items-center text-green-800"
+          >
+            <CheckCircle size={20} aria-hidden="true" className="shrink-0" />
+            <p className="text-sm font-semibold">{`Pronto! Sua conta está no plano ${planoTrocado}.`}</p>
+          </div>
+        )}
 
         {estado.status === 'carregando' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

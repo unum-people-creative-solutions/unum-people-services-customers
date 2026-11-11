@@ -343,3 +343,38 @@ describe('/plano: "Seu plano" (T55)', () => {
     expect(screen.queryByRole('link', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
   });
 });
+
+// spec: cobranca-e-plano-do-cliente RF5-03, T84 (BP-T §11.5, DV-36): depois da troca, o
+// "Pronto!" aparece uma vez em /plano.
+describe('/plano: aviso de plano trocado (T84)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    cancelamento.getPreview.mockResolvedValue(PREVIA_QUE_CANCELA);
+    simularTela(true);
+    tenant.activeTenantId = ID_DA_PADARIA;
+    tenant.activeTenantName = 'Padaria Zé';
+    tenant.isLoadingTenants = false;
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadaria);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('com a chave da empresa: "Pronto! Sua conta está no plano Captação." em status, uma vez só', async () => {
+    sessionStorage.setItem(`plano-trocado:${ID_DA_PADARIA}`, 'Captação');
+    const { unmount } = render(<PlanoPage />);
+    expect(await screen.findByRole('status')).toHaveTextContent('Pronto! Sua conta está no plano Captação.');
+    expect(sessionStorage.getItem(`plano-trocado:${ID_DA_PADARIA}`)).toBeNull();
+    unmount();
+
+    render(<PlanoPage />);
+    await screen.findByRole('heading', { name: 'Seu plano' });
+    expect(screen.queryByText(/Pronto! Sua conta está no plano/)).not.toBeInTheDocument();
+  });
+
+  it('sem a chave: nenhum aviso', async () => {
+    sessionStorage.setItem('plano-trocado:outra-empresa', 'Captação');
+    render(<PlanoPage />);
+    await screen.findByRole('heading', { name: 'Seu plano' });
+    expect(screen.queryByText(/Pronto! Sua conta está no plano/)).not.toBeInTheDocument();
+  });
+});

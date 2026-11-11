@@ -6,12 +6,14 @@ import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 import {
   planoEFaturasDaPadaria,
   planoEFaturasDaPadariaEmAtraso,
+  planoEFaturasDaPadariaEmAtrasoSemGerir,
   planoEFaturasDaPadariaForaDoAr,
   planoEFaturasDaPadariaSemAssinatura,
   planoEFaturasDaPadariaSemGerir,
   resumoBloqueado,
   resumoCancelada,
   resumoEmAtraso,
+  resumoEmAtrasoSemGerir,
   resumoEmDia,
   resumoForaDoAr,
   resumoPausada,
@@ -553,6 +555,23 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
     render(<PlanoPage />);
     await secaoSeuPlano();
     expect(screen.queryByRole('button', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
+  });
+
+  // TASK-FIX-F6-P03 (L-F2): o motivo da troca bloqueada é só de quem gere; para os outros, nem
+  // botão nem motivo, também nos estados em que o botão de quem gere fica desabilitado.
+  it.each([
+    ['em atraso', { resumo: resumoEmAtrasoSemGerir, carregando: false }, planoEFaturasDaPadariaEmAtrasoSemGerir],
+    ['com o resumo carregando', { resumo: null, carregando: true }, planoEFaturasDaPadariaSemGerir],
+  ])('sem pode_gerir %s: nenhum botão e nenhum motivo da troca', async (_caso, estadoDoResumo, faturas) => {
+    cobranca.resumo = estadoDoResumo.resumo;
+    cobranca.carregando = estadoDoResumo.carregando;
+    servico.planoEFaturas.mockResolvedValue(faturas);
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    await act(async () => {});
+    expect(secao.queryByRole('button', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(EM_ATRASO)).not.toBeInTheDocument();
+    expect(screen.queryByText(CONTA_EM_DIA)).not.toBeInTheDocument();
   });
 
   it('o botão abre a caixa com a forma atual do contrato e a fatura a vencer', async () => {

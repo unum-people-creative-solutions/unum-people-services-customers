@@ -121,15 +121,23 @@ describe('/plano: estrutura e estados (T54)', () => {
     expect(servico.planoEFaturas).toHaveBeenCalledTimes(2);
   });
 
-  it('403 com permissao: "Você não pode ver o plano desta empresa…", sem seções e sem alerta de erro', async () => {
-    servico.planoEFaturas.mockRejectedValue({
+  it('403 com permissao: "Você não pode ver o plano desta empresa…", sem seções, sem cancelamento e sem alerta de erro', async () => {
+    const proibido = {
       response: { status: 403, data: { error: 'forbidden', permissao: 'portal.empresa.ver' } },
-    });
+    };
+    servico.planoEFaturas.mockRejectedValue(proibido);
+    // Como a API real: GET /me/cancellation exige a mesma portal.empresa.ver (DV-47).
+    cancelamento.getPreview.mockRejectedValue(proibido);
     render(<PlanoPage />);
     expect(
       await screen.findByText('Você não pode ver o plano desta empresa. Fale com um administrador do Portal.'),
     ).toBeInTheDocument();
+    // Deixa terminar qualquer leitura pendente antes de afirmar a ausência.
+    await act(async () => {});
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Não foi possível carregar os dados da assinatura.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Assinatura' })).not.toBeInTheDocument();
+    expect(cancelamento.getPreview).not.toHaveBeenCalled();
     expect(screen.queryByRole('heading', { name: 'Seu plano' })).not.toBeInTheDocument();
   });
 

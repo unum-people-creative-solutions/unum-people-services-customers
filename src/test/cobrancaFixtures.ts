@@ -115,3 +115,38 @@ export const planoEFaturasDoContrato: PlanoEFaturas = {
   ],
   pode_gerir: true,
 };
+
+// Conta de teste "Padaria Zé" no plano Presença (tasks-fases-3-a-6 §2): a vencer em
+// 05/12, paga em 04/11 (com nota fiscal) e estornada em 05/10, da mais nova à mais antiga.
+export const planoEFaturasDaPadaria: PlanoEFaturas = {
+  plano: {
+    slug: 'presenca',
+    nome: 'Presença',
+    valor: 39.9,
+    ciclo: 'mensal',
+    proximo_vencimento: '2026-12-05',
+    forma_de_pagamento: 'PIX',
+    destaques: ['Domínio próprio', 'Blog', 'Até 3 páginas'],
+  },
+  faturas: [
+    { id: 'pay_3', valor: 39.9, vencimento: '2026-12-05', situacao: 'a_vencer', link: 'https://www.asaas.com/i/pay3' },
+    {
+      id: 'pay_2',
+      valor: 39.9,
+      vencimento: '2026-11-05',
+      situacao: 'paga',
+      pago_em: '2026-11-04',
+      link: 'https://www.asaas.com/i/pay2',
+      nota_fiscal_url: 'https://nf.example.com/pay2.pdf',
+    },
+    { id: 'pay_1', valor: 39.9, vencimento: '2026-10-05', situacao: 'estornada', link: 'https://www.asaas.com/i/pay1' },
+  ],
+  pode_gerir: true,
+};
+
+// Quem não gere o contrato: a API não manda link nem nota fiscal.
+export const planoEFaturasDaPadariaSemGerir: PlanoEFaturas = {
+  ...planoEFaturasDaPadaria,
+  faturas: planoEFaturasDaPadaria.faturas.map(({ link: _link, nota_fiscal_url: _nota, ...fatura }) => fatura),
+  pode_gerir: false,
+};

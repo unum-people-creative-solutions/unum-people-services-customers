@@ -167,8 +167,44 @@ export const planoEFaturasDaPadaria: PlanoEFaturas = {
 };
 
 // Quem não gere o contrato: a API não manda link nem nota fiscal.
-export const planoEFaturasDaPadariaSemGerir: PlanoEFaturas = {
+function vistoPorQuemNaoGere(planoEFaturas: PlanoEFaturas): PlanoEFaturas {
+  return {
+    ...planoEFaturas,
+    faturas: planoEFaturas.faturas.map(({ link: _link, nota_fiscal_url: _nota, ...fatura }) => fatura),
+    pode_gerir: false,
+  };
+}
+
+export const planoEFaturasDaPadariaSemGerir: PlanoEFaturas = vistoPorQuemNaoGere(planoEFaturasDaPadaria);
+
+// L-F4 (validation-final): /me/faturas coerente com o resumo de cada situação.
+const [aVencerEm0512, , estornadaEm0510] = planoEFaturasDaPadaria.faturas;
+
+// Em atraso ou bloqueada desde 05/11 (resumoEmAtraso, resumoBloqueado): a de 05/11 vencida, no
+// lugar da paga, com o mesmo link do resumo; a de 05/12 já gerada, a vencer. Sem o pagamento de
+// 05/11, paid_until (o próximo vencimento) não avançou.
+export const planoEFaturasDaPadariaEmAtraso: PlanoEFaturas = {
   ...planoEFaturasDaPadaria,
-  faturas: planoEFaturasDaPadaria.faturas.map(({ link: _link, nota_fiscal_url: _nota, ...fatura }) => fatura),
-  pode_gerir: false,
+  plano: { ...planoEFaturasDaPadaria.plano, proximo_vencimento: '2026-11-05' },
+  faturas: [
+    aVencerEm0512,
+    { id: 'pay_2', valor: 39.9, vencimento: '2026-11-05', situacao: 'vencida', link: 'https://www.asaas.com/i/abc' },
+    estornadaEm0510,
+  ],
+};
+
+export const planoEFaturasDaPadariaEmAtrasoSemGerir: PlanoEFaturas = vistoPorQuemNaoGere(planoEFaturasDaPadariaEmAtraso);
+
+// Fora do ar (resumoForaDoAr): a conta foi pausada em 05/12 com a de 05/11 vencida; a assinatura
+// cancelada no Asaas levou junto a de 05/12, que estava a vencer (DELETED não aparece).
+export const planoEFaturasDaPadariaForaDoAr: PlanoEFaturas = {
+  ...planoEFaturasDaPadariaEmAtraso,
+  faturas: planoEFaturasDaPadariaEmAtraso.faturas.slice(1),
+};
+
+// Pausada ou cancelada sem atraso (resumoPausada, resumoCancelada): a assinatura foi cancelada no
+// Asaas e a de 05/12, a vencer, saiu junto. Fica o histórico: paga em 05/11 e estornada em 05/10.
+export const planoEFaturasDaPadariaSemAssinatura: PlanoEFaturas = {
+  ...planoEFaturasDaPadaria,
+  faturas: planoEFaturasDaPadaria.faturas.slice(1),
 };

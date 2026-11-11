@@ -5,11 +5,16 @@ import type { CancellationPreview } from '@/services/api';
 import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 import {
   planoEFaturasDaPadaria,
+  planoEFaturasDaPadariaEmAtraso,
+  planoEFaturasDaPadariaForaDoAr,
+  planoEFaturasDaPadariaSemAssinatura,
   planoEFaturasDaPadariaSemGerir,
   resumoBloqueado,
+  resumoCancelada,
   resumoEmAtraso,
   resumoEmDia,
   resumoForaDoAr,
+  resumoPausada,
 } from '@/test/cobrancaFixtures';
 import { simularTela } from '@/test/telaLarga';
 import { captacaoUpgrade, planosDaPadaria, planosSoOAtual, presencaAtual } from '@/test/planosFixtures';
@@ -598,12 +603,14 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
     expect(secao.getByText('Forma de pagamento: Pix')).toBeInTheDocument();
   });
 
+  // L-F4: /me/faturas de cada caso coerente com o resumo (a de 05/11 vencida, nunca paga).
   it.each([
-    ['em_atraso', resumoEmAtraso],
-    ['bloqueado', resumoBloqueado],
-    ['fora_do_ar', resumoForaDoAr],
-  ])('resultado B com %s: botão desabilitado com o motivo como descrição acessível', async (_situacao, resumo) => {
+    ['em_atraso', resumoEmAtraso, planoEFaturasDaPadariaEmAtraso],
+    ['bloqueado', resumoBloqueado, planoEFaturasDaPadariaEmAtraso],
+    ['fora_do_ar', resumoForaDoAr, planoEFaturasDaPadariaForaDoAr],
+  ])('resultado B com %s: botão desabilitado com o motivo como descrição acessível', async (_s, resumo, faturas) => {
     cobranca.resumo = resumo;
+    servico.planoEFaturas.mockResolvedValue(faturas);
     render(<PlanoPage />);
     const secao = await secaoSeuPlano();
     const botao = secao.getByRole('button', { name: 'Trocar forma de pagamento' });
@@ -621,12 +628,14 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
 
   // TASK-FIX-F6-P01 (RF6-03, Verifier F6 L3): fora de em_dia e do atraso, a API recusa a troca
   // (409 conta_nao_ativa); o botão não fica ativo para receber "Tente de novo".
+  // L-F4: pausada e cancelada não têm assinatura, então não há fatura a vencer.
   it.each([
-    ['pausada', { ...resumoEmDia, situacao: 'pausada' }],
-    ['cancelada', { ...resumoEmDia, situacao: 'cancelada' }],
-    ['outra', { ...resumoEmDia, situacao: 'outra' }],
-  ] as const)('%s: botão desabilitado com "só com a conta em dia" como descrição acessível', async (_s, resumo) => {
+    ['pausada', resumoPausada, planoEFaturasDaPadariaSemAssinatura],
+    ['cancelada', resumoCancelada, planoEFaturasDaPadariaSemAssinatura],
+    ['outra', { ...resumoEmDia, situacao: 'outra' } as ResumoDeCobranca, planoEFaturasDaPadaria],
+  ])('%s: botão desabilitado com "só com a conta em dia" como descrição acessível', async (_s, resumo, faturas) => {
     cobranca.resumo = resumo;
+    servico.planoEFaturas.mockResolvedValue(faturas);
     render(<PlanoPage />);
     const secao = await secaoSeuPlano();
     const botao = secao.getByRole('button', { name: 'Trocar forma de pagamento' });

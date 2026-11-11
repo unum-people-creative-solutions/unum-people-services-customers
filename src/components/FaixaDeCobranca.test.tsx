@@ -11,7 +11,9 @@ import type { ResumoDeCobranca } from '@/types/cobranca';
 import {
   resumoBloqueado,
   resumoEmAtraso,
-  resumoEmAtrasoAntesDoParcial,
+  resumoBloqueadoAntesDoParcial,
+  resumoEmAtrasoDepoisDoParcial,
+  RELOGIO_DO_PARCIAL,
   resumoEmAtrasoSemDatas,
   resumoEmAtrasoSemFatura,
   resumoEmAtrasoSemGerir,
@@ -375,16 +377,18 @@ describe('FaixaDeCobranca — espera do pagamento (RF2-33)', () => {
   });
 
   it('parcial (R6): outro vencimento em atraso → volta ao estado normal com a linha da fatura paga acima do texto', async () => {
-    await montarCom(resumoEmAtrasoAntesDoParcial);
+    // Par real: bloqueado com 31/01 e 28/02 vencidas (01/03); pago o 31/01, em_atraso com 28/02.
+    vi.setSystemTime(RELOGIO_DO_PARCIAL);
+    await montarCom(resumoBloqueadoAntesDoParcial);
     await clicarEmPagar();
 
-    resumoMock.mockResolvedValue(resumoEmAtraso);
+    resumoMock.mockResolvedValue(resumoEmAtrasoDepoisDoParcial);
     await passar(15_000);
 
     const status = within(faixa()).getByRole('status');
     expect(status).toHaveTextContent(
-      'Recebemos o pagamento da fatura de 05/10. Ainda há outra fatura em atraso.' +
-        'Sua fatura de R$ 39,90 venceu em 05/11.',
+      'Recebemos o pagamento da fatura de 31/01. Ainda há outra fatura em atraso.' +
+        'Sua fatura de R$ 39,90 venceu em 28/02. Pague até 09/03 para não perder o acesso a Páginas, CRM e blog.',
     );
     expect(status).not.toHaveTextContent(AGUARDANDO);
   });

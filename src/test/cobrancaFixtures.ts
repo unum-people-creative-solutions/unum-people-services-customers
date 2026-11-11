@@ -59,25 +59,31 @@ export const resumoEmDia: ResumoDeCobranca = {
 export const resumoPausada: ResumoDeCobranca = { ...resumoEmDia, situacao: 'pausada' };
 export const resumoCancelada: ResumoDeCobranca = { ...resumoEmDia, situacao: 'cancelada' };
 
-// R6 (T11), antes do pagamento parcial: duas faturas vencidas (05/10 e 05/11). A `fatura` é a
-// vencida mais antiga e `DelinquencySince` é o vencimento dela, então as cinco datas partem de 05/10.
-const faturaDe0510 = { valor: 39.9, vencimento: '2026-10-05', link: 'https://www.asaas.com/i/abc' };
-const datasDesde0510 = {
-  vencida_em: '2026-10-05',
-  pagar_ate: '2026-10-14',
-  bloqueio_em: '2026-10-15',
-  fora_do_ar_em: '2026-11-04',
-  cancelamento_em: '2026-12-04',
-};
-
-export const resumoEmAtrasoAntesDoParcial: ResumoDeCobranca = {
-  ...resumoEmAtraso,
-  fatura: faturaDe0510,
-  ...datasDesde0510,
-};
+// R6 (T11) com o único par que a fatura mensal produz (TECH-DESIGN, proposta A; Verifier F2 r2,
+// N2): faturas de 31/01 e 28/02, as duas vencidas em 01/03 (D+29 de 31/01), conta `bloqueado`.
+// A `fatura` é a vencida mais antiga e `DelinquencySince` é o vencimento dela, então as cinco
+// datas partem de 31/01 (D+0, D+9, D+10, D+30, D+60).
+export const RELOGIO_DO_PARCIAL = new Date('2026-03-01T15:00:00Z').getTime();
 
 export const resumoBloqueadoAntesDoParcial: ResumoDeCobranca = {
   ...resumoBloqueado,
-  fatura: faturaDe0510,
-  ...datasDesde0510,
+  fatura: { valor: 39.9, vencimento: '2026-01-31', link: 'https://www.asaas.com/i/jan' },
+  vencida_em: '2026-01-31',
+  pagar_ate: '2026-02-09',
+  bloqueio_em: '2026-02-10',
+  fora_do_ar_em: '2026-03-02',
+  cancelamento_em: '2026-04-01',
+};
+
+// Pago o 31/01, o RF1-20 move `DelinquencySince` para 28/02 (dias = 1): a conta volta a
+// INADIMPLENTE, `em_atraso` sem ferramentas bloqueadas, com as datas a partir de 28/02.
+export const resumoEmAtrasoDepoisDoParcial: ResumoDeCobranca = {
+  ...resumoEmAtraso,
+  fatura: { valor: 39.9, vencimento: '2026-02-28', link: 'https://www.asaas.com/i/fev' },
+  vencida_em: '2026-02-28',
+  pagar_ate: '2026-03-09',
+  bloqueio_em: '2026-03-10',
+  fora_do_ar_em: '2026-03-30',
+  cancelamento_em: '2026-04-29',
+  ferramentas_bloqueadas: [],
 };

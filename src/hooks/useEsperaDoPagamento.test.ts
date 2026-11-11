@@ -7,7 +7,9 @@ import {
   resumoBloqueado,
   resumoBloqueadoAntesDoParcial,
   resumoEmAtraso,
+  resumoEmAtrasoDepoisDoParcial,
   resumoEmDia,
+  RELOGIO_DO_PARCIAL,
 } from '@/test/cobrancaFixtures';
 
 // spec: cobranca-e-plano-do-cliente RF2-33 (espera do pagamento, BP-T §5), T42 e o bloco
@@ -152,16 +154,18 @@ describe('useEsperaDoPagamento (RF2-33)', () => {
   });
 
   it('continua em atraso com outro vencimento: parcial, com o vencimento pago, e chave apagada', () => {
+    // Par real (R6): bloqueado com 31/01 e 28/02 vencidas em 01/03; pago o 31/01, em_atraso com 28/02.
+    vi.setSystemTime(RELOGIO_DO_PARCIAL);
     const { result, rerender } = montar(vi.fn().mockResolvedValue(undefined), {
       tenantId: TENANT,
       resumo: resumoBloqueadoAntesDoParcial,
     });
-    act(() => result.current.iniciar('2026-10-05'));
+    act(() => result.current.iniciar('2026-01-31'));
 
-    rerender({ tenantId: TENANT, resumo: resumoBloqueado });
+    rerender({ tenantId: TENANT, resumo: resumoEmAtrasoDepoisDoParcial });
 
     expect(result.current.estado).toBe('parcial');
-    expect(result.current.vencimentoPago).toBe('2026-10-05');
+    expect(result.current.vencimentoPago).toBe('2026-01-31');
     expect(sessionStorage.getItem(CHAVE)).toBeNull();
   });
 

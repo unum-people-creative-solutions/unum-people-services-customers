@@ -89,10 +89,13 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
   const cartaoId = useId();
   const depoisId = useId();
   const dominioId = useId();
+  // 409 nao_pausada: o resumo estava velho (ex.: o operador já reativou). A tela relê e mostra o
+  // que o resumo novo disser, sem oferecer gerar de novo (Verifier F4 L8).
+  const naoPausada = pedido.estado === 'erro' && pedido.erro === 'nao_pausada';
 
   if (!resumo) return null;
 
-  if (resumo.situacao === 'em_dia' && viuForaDoAr) {
+  if (resumo.situacao === 'em_dia' && viuForaDoAr && !naoPausada) {
     return (
       <div className="bg-green-50 border border-green-200 text-green-800 rounded-2xl p-6 flex items-start gap-3">
         <CheckCircle size={20} aria-hidden="true" className="shrink-0 mt-0.5" />
@@ -160,6 +163,7 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
       const resultado = await ReativacaoService.pedir(activeTenantId);
       if ('tipo' in resultado) {
         setPedido({ estado: 'erro', erro: resultado.tipo });
+        if (resultado.tipo === 'nao_pausada') recarregar().catch(() => undefined);
       } else {
         setPedido({ estado: 'gerada', ...resultado });
       }
@@ -255,16 +259,18 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
                   <MensagemDoErro erro={pedido.erro} />
                 </p>
               )}
-              <button type="button" onClick={gerar} disabled={gerando} className={BOTAO_PRIMARIO}>
-                {gerando ? (
-                  <>
-                    <RefreshCw size={16} aria-hidden="true" className="motion-safe:animate-spin" />
-                    Gerando a fatura…
-                  </>
-                ) : (
-                  'Gerar a fatura de reativação'
-                )}
-              </button>
+              {!naoPausada && (
+                <button type="button" onClick={gerar} disabled={gerando} className={BOTAO_PRIMARIO}>
+                  {gerando ? (
+                    <>
+                      <RefreshCw size={16} aria-hidden="true" className="motion-safe:animate-spin" />
+                      Gerando a fatura…
+                    </>
+                  ) : (
+                    'Gerar a fatura de reativação'
+                  )}
+                </button>
+              )}
             </div>
           )}
         </section>

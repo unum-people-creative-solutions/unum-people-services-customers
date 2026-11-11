@@ -5,6 +5,7 @@ import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 import {
   planoEFaturasDaPadaria,
   respostaDaReativacao,
+  resumoBloqueado,
   resumoEmDia,
   resumoForaDoAr,
   resumoForaDoArComReativacaoPendente,
@@ -160,6 +161,44 @@ describe('/reativar: gerar a fatura de reativação (T74)', () => {
     });
     expect(screen.getByRole('alert')).toHaveTextContent(NAO_PODE);
     expect(screen.queryByRole('link', { name: /Pagar fatura/ })).not.toBeInTheDocument();
+  });
+
+  // Verifier F4 L8: o 409 diz que o resumo está velho; a tela relê /me/cobranca e não oferece
+  // gerar de novo.
+  it('409 nao_pausada: relê o resumo e some o botão de gerar, mesmo se o resumo ainda disser fora_do_ar', async () => {
+    reativacao.pedir.mockResolvedValue({ tipo: 'nao_pausada' });
+    await montar(resumoForaDoAr);
+    await act(async () => {
+      fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+    });
+    expect(leitura.recarregar).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveTextContent(NAO_PODE);
+    expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
+  });
+
+  it('409 nao_pausada e resumo novo em_dia: "Sua conta está ativa…" com "Ir para Meus Produtos"', async () => {
+    reativacao.pedir.mockResolvedValue({ tipo: 'nao_pausada' });
+    leitura.proximo = resumoEmDia;
+    await montar(resumoForaDoAr);
+    await act(async () => {
+      fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+    });
+    expect(leitura.recarregar).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Sua conta está ativa. Não há nada para reativar.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ir para Meus Produtos' })).toHaveAttribute('href', '/produtos');
+    expect(screen.queryByText('Conta reativada. Sua página está no ar de novo.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
+  });
+
+  it('409 nao_pausada e resumo novo bloqueado: "Esta conta não pode ser reativada por aqui…", sem botão', async () => {
+    reativacao.pedir.mockResolvedValue({ tipo: 'nao_pausada' });
+    leitura.proximo = resumoBloqueado;
+    await montar(resumoForaDoAr);
+    await act(async () => {
+      fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+    });
+    expect(screen.getByText(/Esta conta não pode ser reativada por aqui/)).toHaveTextContent(NAO_PODE);
+    expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
   });
 
   it('409 de cancelamento pedido: alerta "Há um pedido de cancelamento nesta conta…"', async () => {

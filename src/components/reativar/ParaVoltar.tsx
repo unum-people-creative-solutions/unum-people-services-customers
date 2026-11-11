@@ -123,7 +123,15 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
     );
   }
 
-  if (resumo.situacao !== 'fora_do_ar') {
+  // Fase 7 (spec-f7 RF7-08, DV-53): em atraso sem fatura para pagar, com `reativacao` no resumo.
+  // A página continua no ar: sem "Sua página volta ao ar.", sem o aviso do domínio e sem
+  // "A fatura antiga não é cobrada.".
+  const semFatura =
+    (resumo.situacao === 'em_atraso' || resumo.situacao === 'bloqueado') &&
+    resumo.fatura === null &&
+    resumo.reativacao !== undefined;
+
+  if (resumo.situacao !== 'fora_do_ar' && !semFatura) {
     return (
       <Caixa>
         <p className="text-gray-800">
@@ -177,10 +185,17 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-gray-800">
-        Sua página está fora do ar por falta de pagamento. A conta será cancelada em{' '}
-        {resumo.cancelamento_em ? formatarData(resumo.cancelamento_em) : ''}.
-      </p>
+      {semFatura ? (
+        <p className="text-gray-800">
+          Não encontramos uma fatura em aberto desta conta. Gere a fatura de {formatarReais(valor)} para pagar e
+          liberar o acesso.
+        </p>
+      ) : (
+        <p className="text-gray-800">
+          Sua página está fora do ar por falta de pagamento. A conta será cancelada em{' '}
+          {resumo.cancelamento_em ? formatarData(resumo.cancelamento_em) : ''}.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <section
@@ -195,7 +210,7 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
           <p className="text-sm text-gray-700 mt-2">
             {anual ? `Uma anuidade do plano ${plano.nome}.` : `Uma mensalidade do plano ${plano.nome}.`}
           </p>
-          <p className="text-sm text-gray-700">A fatura antiga não é cobrada.</p>
+          {!semFatura && <p className="text-sm text-gray-700">A fatura antiga não é cobrada.</p>}
 
           {!resumo.pode_gerir ? (
             <div className="mt-4">
@@ -280,8 +295,10 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
             Depois de pagar
           </h2>
           <ul className="mt-3 list-disc pl-5 space-y-2 text-sm text-gray-800">
-            <li>Sua página volta ao ar.</li>
-            <li>{ferramentasCitadas(resumo.ferramentas_bloqueadas)} voltam a funcionar.</li>
+            {!semFatura && <li>Sua página volta ao ar.</li>}
+            {resumo.situacao !== 'em_atraso' && (
+              <li>{ferramentasCitadas(resumo.ferramentas_bloqueadas)} voltam a funcionar.</li>
+            )}
             <li>
               Um novo ciclo começa no dia do pagamento. A próxima fatura vence em {anual ? 'um ano' : 'um mês'}.
             </li>
@@ -289,21 +306,23 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
         </section>
       </div>
 
-      <section
-        aria-labelledby={dominioId}
-        className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex items-start gap-3"
-      >
-        <AlertTriangle size={20} aria-hidden="true" className="shrink-0 mt-0.5" />
-        <div>
-          <h2 id={dominioId} className="font-bold text-sm">
-            Domínio próprio
-          </h2>
-          <p className="text-sm mt-1">
-            Se você usava um domínio próprio, ele foi desligado quando a página saiu do ar. Depois de reativar, ligue
-            de novo em Páginas › Domínio próprio.
-          </p>
-        </div>
-      </section>
+      {!semFatura && (
+        <section
+          aria-labelledby={dominioId}
+          className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex items-start gap-3"
+        >
+          <AlertTriangle size={20} aria-hidden="true" className="shrink-0 mt-0.5" />
+          <div>
+            <h2 id={dominioId} className="font-bold text-sm">
+              Domínio próprio
+            </h2>
+            <p className="text-sm mt-1">
+              Se você usava um domínio próprio, ele foi desligado quando a página saiu do ar. Depois de reativar, ligue
+              de novo em Páginas › Domínio próprio.
+            </p>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

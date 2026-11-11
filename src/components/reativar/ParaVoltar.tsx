@@ -83,9 +83,18 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
   const [pedido, setPedido] = useState<Pedido>({ estado: 'parado' });
   // Duplo clique gera uma chamada só (DV-45): o botão desabilita e a trava fica até a resposta.
   const enviandoRef = useRef(false);
-  // A conta estava fora do ar nesta visita: em_dia depois disso é a reativação confirmada.
-  const [viuForaDoAr, setViuForaDoAr] = useState(false);
-  if (resumo?.situacao === 'fora_do_ar' && !viuForaDoAr) setViuForaDoAr(true);
+  // Fase 7 (spec-f7 RF7-08, DV-53): em atraso sem fatura para pagar, com `reativacao` no resumo.
+  // A página continua no ar: sem "Sua página volta ao ar.", sem o aviso do domínio e sem
+  // "A fatura antiga não é cobrada.".
+  const semFatura =
+    (resumo?.situacao === 'em_atraso' || resumo?.situacao === 'bloqueado') &&
+    resumo.fatura === null &&
+    resumo.reativacao !== undefined;
+  // O estado reativável visto nesta visita: em_dia depois dele é a reativação confirmada, e o
+  // texto da confirmação depende de a página ter saído do ar ou não.
+  const reativavel = resumo?.situacao === 'fora_do_ar' ? 'fora_do_ar' : semFatura ? 'sem_fatura' : null;
+  const [viuReativavel, setViuReativavel] = useState<'fora_do_ar' | 'sem_fatura' | null>(null);
+  if (reativavel && reativavel !== viuReativavel) setViuReativavel(reativavel);
   const cartaoId = useId();
   const depoisId = useId();
   const dominioId = useId();
@@ -95,15 +104,20 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
 
   if (!resumo) return null;
 
-  if (resumo.situacao === 'em_dia' && viuForaDoAr && !naoPausada) {
+  if (resumo.situacao === 'em_dia' && viuReativavel && !naoPausada) {
+    const saiuDoAr = viuReativavel === 'fora_do_ar';
     return (
       <div className="bg-green-50 border border-green-200 text-green-800 rounded-2xl p-6 flex items-start gap-3">
         <CheckCircle size={20} aria-hidden="true" className="shrink-0 mt-0.5" />
         <div className="flex-1">
           <div role="status">
-            <p className="font-semibold">Conta reativada. Sua página está no ar de novo.</p>
+            <p className="font-semibold">
+              {saiuDoAr ? 'Conta reativada. Sua página está no ar de novo.' : 'Conta reativada.'}
+            </p>
           </div>
-          <p className="text-sm mt-1">Se você usava um domínio próprio, ligue de novo em Páginas › Domínio próprio.</p>
+          {saiuDoAr && (
+            <p className="text-sm mt-1">Se você usava um domínio próprio, ligue de novo em Páginas › Domínio próprio.</p>
+          )}
           <a href={PAGINAS_URL} className={`${BOTAO_PRIMARIO} mt-4`}>
             Abrir Páginas
           </a>
@@ -122,14 +136,6 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
       </Caixa>
     );
   }
-
-  // Fase 7 (spec-f7 RF7-08, DV-53): em atraso sem fatura para pagar, com `reativacao` no resumo.
-  // A página continua no ar: sem "Sua página volta ao ar.", sem o aviso do domínio e sem
-  // "A fatura antiga não é cobrada.".
-  const semFatura =
-    (resumo.situacao === 'em_atraso' || resumo.situacao === 'bloqueado') &&
-    resumo.fatura === null &&
-    resumo.reativacao !== undefined;
 
   if (resumo.situacao !== 'fora_do_ar' && !semFatura) {
     return (

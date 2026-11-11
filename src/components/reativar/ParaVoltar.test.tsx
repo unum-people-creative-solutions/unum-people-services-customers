@@ -6,6 +6,8 @@ import {
   planoEFaturasDaPadaria,
   respostaDaReativacao,
   resumoBloqueado,
+  resumoBloqueadoSemFaturaComReativacao,
+  resumoBloqueadoSemFaturaComReativacaoPendente,
   resumoEmDia,
   resumoForaDoAr,
   resumoForaDoArComReativacaoPendente,
@@ -322,5 +324,83 @@ describe('/reativar: espera e confirmação (T74, relógio falso)', () => {
     });
     expect(leitura.recarregar).toHaveBeenCalledTimes(consultas + 1);
     expect(cartao().getByRole('link', { name: /Pagar fatura/ })).toBeInTheDocument();
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente spec-f7 RF7-08, T104 (fase 7: gerar, pagar e confirmar na
+// conta em atraso sem fatura para pagar; DV-53).
+describe('/reativar: conta em atraso sem fatura para pagar (T104)', () => {
+  const INICIO = new Date('2026-12-05T15:00:00Z').getTime();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    leitura.proximo = null;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('gerar, pagar e confirmar: "Conta reativada." com "Abrir Páginas", sem a frase da página e sem a lembrança do domínio', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(INICIO);
+    reativacao.pedir.mockResolvedValue(respostaDaReativacao);
+    await montar(resumoBloqueadoSemFaturaComReativacao);
+
+    await act(async () => {
+      fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+    });
+    expect(reativacao.pedir).toHaveBeenCalledTimes(1);
+    expect(reativacao.pedir).toHaveBeenCalledWith(ID_DA_PADARIA);
+    expect(cartao().getByText('Fatura de reativação de R$ 39,90, vence em 08/12.')).toBeInTheDocument();
+    const pagar = cartao().getByRole('link', { name: /Pagar fatura/ });
+    expect(pagar).toHaveAttribute('href', 'https://www.asaas.com/i/reativ1');
+    expect(pagar).toHaveAttribute('target', '_blank');
+
+    pagar.addEventListener('click', (e) => e.preventDefault(), { once: true });
+    await act(async () => {
+      fireEvent.click(pagar);
+    });
+    expect(cartao().getByRole('status')).toHaveTextContent('Aguardando a confirmação do pagamento');
+
+    leitura.proximo = resumoEmDia;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('Conta reativada.');
+    expect(status).not.toHaveTextContent('Sua página está no ar de novo.');
+    expect(screen.getByRole('link', { name: 'Abrir Páginas' })).toHaveAttribute(
+      'href',
+      'https://unumpeople.app/minha-conta',
+    );
+    expect(screen.queryByText(/Sua página está no ar de novo/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Se você usava um domínio próprio/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Sua conta está ativa. Não há nada para reativar.')).not.toBeInTheDocument();
+  });
+
+  it('cobrança de reativação pendente: o link "Pagar fatura" sem o botão de gerar', async () => {
+    await montar(resumoBloqueadoSemFaturaComReativacaoPendente);
+
+    expect(cartao().getByRole('link', { name: /Pagar fatura/ })).toHaveAttribute('href', 'https://www.asaas.com/i/reativ1');
+    expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
+    expect(reativacao.pedir).not.toHaveBeenCalled();
+  });
+
+  it('409 nao_pausada (assinatura ativa no Asaas): alerta, relê o resumo uma vez e some o botão, mesmo com o resumo ainda bloqueado com reativacao', async () => {
+    reativacao.pedir.mockResolvedValue({ tipo: 'nao_pausada' });
+    // Resumo relido: outro objeto, ainda bloqueado com reativacao (a API não vê a assinatura ativa).
+    leitura.proximo = { ...resumoBloqueadoSemFaturaComReativacao };
+    await montar(resumoBloqueadoSemFaturaComReativacao);
+
+    await act(async () => {
+      fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(NAO_PODE);
+    expect(leitura.recarregar).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
   });
 });

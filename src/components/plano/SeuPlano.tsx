@@ -1,14 +1,39 @@
 'use client';
 
-// cobranca-e-plano-do-cliente RF3-02 (BP-T §9.2): o plano do contrato. Sem botões nesta
-// fase: "Mudar de plano" chega na fase 5 e "Trocar forma de pagamento" na fase 6.
+// cobranca-e-plano-do-cliente RF3-02 (BP-T §9.2): o plano do contrato. Fase 5 (RF5-03,
+// §11.7): para quem gere, "Mudar de plano" e a sugestão do próximo plano. "Trocar forma de
+// pagamento" chega na fase 6.
 import { useId } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { formatarDataCompleta, nomeDaForma, valorDoPlano } from '@/lib/cobrancaTexto';
+import { fraseDasDiferencas } from '@/lib/planosTexto';
 import type { PlanoDoCliente } from '@/types/cobranca';
+import type { PlanoParaTroca } from '@/types/planos';
 
-export default function SeuPlano({ plano }: { plano: PlanoDoCliente }) {
+// Próximo = o upgrade mais barato que pode ser escolhido.
+function sugestaoDos(planos: PlanoParaTroca[]): string | null {
+  const atual = planos.find((p) => p.direcao === 'atual');
+  const proximo = planos
+    .filter((p) => p.direcao === 'upgrade' && p.indisponivel_por === null)
+    .sort((a, b) => a.valor - b.valor)[0];
+  if (!atual || !proximo) return null;
+  const frase = fraseDasDiferencas(atual, proximo);
+  return frase ? `No plano ${proximo.nome} você ganha ${frase}.` : null;
+}
+
+export default function SeuPlano({
+  plano,
+  podeGerir = false,
+  planos = null,
+}: {
+  plano: PlanoDoCliente;
+  podeGerir?: boolean;
+  // GET /me/planos; null enquanto lê ou quando a leitura falha.
+  planos?: PlanoParaTroca[] | null;
+}) {
   const tituloId = useId();
+  const mostraTroca = podeGerir && planos !== null;
+  const sugestao = mostraTroca ? sugestaoDos(planos) : null;
   return (
     <section aria-labelledby={tituloId} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
       <h3 id={tituloId} className="text-xl font-black text-gray-900">
@@ -31,6 +56,17 @@ export default function SeuPlano({ plano }: { plano: PlanoDoCliente }) {
             </li>
           ))}
         </ul>
+      )}
+      {sugestao && <p className="mt-4 text-sm text-gray-800">{sugestao}</p>}
+      {mostraTroca && (
+        <div className="mt-4 flex flex-wrap gap-3">
+          <a
+            href="/plano/mudar"
+            className="min-h-[44px] inline-flex items-center justify-center bg-brand-blue text-white rounded-xl font-bold text-sm py-2.5 px-4 hover:brightness-110 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
+          >
+            Mudar de plano
+          </a>
+        </div>
       )}
     </section>
   );

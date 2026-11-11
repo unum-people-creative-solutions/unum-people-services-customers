@@ -12,7 +12,9 @@ import SubscriptionCancel from '@/components/SubscriptionCancel';
 import { useTenant } from '@/contexts/TenantContext';
 import { ehRecusaPorPermissao } from '@/services/api';
 import { FaturasService } from '@/services/cobranca';
+import { PlanosService } from '@/services/planos';
 import type { PlanoEFaturas } from '@/types/cobranca';
+import type { PlanoParaTroca } from '@/types/planos';
 
 type Estado =
   | { status: 'carregando' }
@@ -38,6 +40,10 @@ export default function PlanoPage() {
   // cobranca-e-plano-do-cliente RF5-03 (BP-T §11.5, DV-36): plano trocado, gravado pela
   // confirmação da troca. Aparece uma vez e a chave é apagada.
   const [planoTrocado, setPlanoTrocado] = useState<string | null>(null);
+  // Fase 5 (RF5-03, BP-T §11.7): planos para a troca, lidos sem segurar a página. Com erro,
+  // fica null: o bloco "Seu plano" sai sem a sugestão e sem o botão.
+  const [planos, setPlanos] = useState<PlanoParaTroca[] | null>(null);
+  const planosRef = useRef(0);
 
   useEffect(() => {
     if (isLoadingTenants || !activeTenantId) return;
@@ -55,7 +61,20 @@ export default function PlanoPage() {
     setTenantVisto(activeTenantId);
     setEstado({ status: 'carregando' });
     setPlanoTrocado(null);
+    setPlanos(null);
   }
+
+  const lerPlanos = useCallback(async (tenantId: string) => {
+    const requisicao = ++planosRef.current;
+    try {
+      const lista = await PlanosService.listar(tenantId);
+      if (requisicao === planosRef.current) setPlanos(lista);
+    } catch (err) {
+      if (requisicao !== planosRef.current) return;
+      console.error('Erro ao ler os planos para a troca:', err);
+      setPlanos(null);
+    }
+  }, []);
 
   const ler = useCallback(async (tenantId: string) => {
     const requisicao = ++requisicaoRef.current;
@@ -73,7 +92,8 @@ export default function PlanoPage() {
     if (isLoadingTenants || !activeTenantId) return;
     setEstado({ status: 'carregando' });
     void ler(activeTenantId);
-  }, [isLoadingTenants, activeTenantId, ler]);
+    void lerPlanos(activeTenantId);
+  }, [isLoadingTenants, activeTenantId, ler, lerPlanos]);
 
   // Pagamento confirmado: relê com os dados atuais ainda na tela.
   const relerAposPagamento = useCallback(() => {
@@ -149,7 +169,7 @@ export default function PlanoPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            <SeuPlano plano={estado.dados.plano} />
+            <SeuPlano plano={estado.dados.plano} podeGerir={estado.dados.pode_gerir} planos={planos} />
             <FaturaEmAberto
               faturas={estado.dados.faturas}
               formaDePagamento={estado.dados.plano.forma_de_pagamento}

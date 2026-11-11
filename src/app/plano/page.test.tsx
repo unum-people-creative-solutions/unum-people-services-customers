@@ -10,12 +10,21 @@ import {
   resumoEmDia,
 } from '@/test/cobrancaFixtures';
 import { simularTela } from '@/test/telaLarga';
+import { captacaoUpgrade, planosDaPadaria, planosSoOAtual, presencaAtual } from '@/test/planosFixtures';
 
 // spec: cobranca-e-plano-do-cliente RF3-02, T54 (estrutura e estados, BP-T §9.1 e §9.5)
 // e T55 ("Seu plano", BP-T §9.2).
 
 const servico = vi.hoisted(() => ({ planoEFaturas: vi.fn() }));
 vi.mock('@/services/cobranca', () => ({ FaturasService: servico }));
+
+// Fase 5 (T85): /plano também lê GET /me/planos, sem bloquear a página. Fora do bloco do
+// T85 a leitura falha, e a página fica como nas fases 3 e 4 (sem a linha e sem o botão).
+const planosServico = vi.hoisted(() => ({
+  listar: vi.fn().mockRejectedValue({ response: { status: 500, data: { error: 'internal_error' } } }),
+  mudar: vi.fn(),
+}));
+vi.mock('@/services/planos', () => ({ PlanosService: planosServico }));
 
 const tenant = vi.hoisted(() => ({
   activeTenantId: '3f2b8c1e-9d4a-4e7b-a6c5-1b2d3e4f5a6b',
@@ -376,5 +385,88 @@ describe('/plano: aviso de plano trocado (T84)', () => {
     render(<PlanoPage />);
     await screen.findByRole('heading', { name: 'Seu plano' });
     expect(screen.queryByText(/Pronto! Sua conta está no plano/)).not.toBeInTheDocument();
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF5-03, T85 (BP-T §9.2, §11.7): sugestão e "Mudar de
+// plano" no bloco "Seu plano".
+describe('/plano: sugestão e "Mudar de plano" (T85)', () => {
+  const SUGESTAO =
+    'No plano Captação você ganha CRM, até 5 páginas, sem a assinatura “Feito com Unum People” e até 10 usuários.';
+  const erroDosPlanos = { response: { status: 500, data: { error: 'internal_error' } } };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    cancelamento.getPreview.mockResolvedValue(PREVIA_QUE_CANCELA);
+    simularTela(true);
+    tenant.activeTenantId = ID_DA_PADARIA;
+    tenant.activeTenantName = 'Padaria Zé';
+    tenant.isLoadingTenants = false;
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadaria);
+    planosServico.listar.mockResolvedValue(planosDaPadaria.planos);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    planosServico.listar.mockRejectedValue(erroDosPlanos);
+  });
+
+  async function secaoSeuPlano() {
+    const titulo = await screen.findByRole('heading', { name: 'Seu plano' });
+    return within(titulo.closest('section') as HTMLElement);
+  }
+
+  it('quem gere, com upgrade: a linha da sugestão e o link "Mudar de plano" para /plano/mudar', async () => {
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    expect(await secao.findByText(SUGESTAO)).toBeInTheDocument();
+    expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
+    expect(planosServico.listar).toHaveBeenCalledWith(ID_DA_PADARIA);
+    // Os destaques continuam sendo a única lista do bloco (T55).
+    expect(secao.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Domínio próprio', 'Blog', 'Até 3 páginas']);
+  });
+
+  it('sem upgrade (só o atual): sem a linha, com o link', async () => {
+    planosServico.listar.mockResolvedValue(planosSoOAtual.planos);
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    expect(await secao.findByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
+    expect(secao.queryByText(/^No plano /)).not.toBeInTheDocument();
+  });
+
+  it('upgrade indisponível não é sugerido', async () => {
+    planosServico.listar.mockResolvedValue([presencaAtual, { ...captacaoUpgrade, indisponivel_por: 'dominio_ligado' }]);
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    expect(await secao.findByRole('link', { name: 'Mudar de plano' })).toBeInTheDocument();
+    expect(secao.queryByText(/^No plano /)).not.toBeInTheDocument();
+  });
+
+  it('sem pode_gerir: sem o link e sem a linha', async () => {
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadariaSemGerir);
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    await act(async () => {});
+    expect(secao.queryByRole('link', { name: 'Mudar de plano' })).not.toBeInTheDocument();
+    expect(secao.queryByText(/^No plano /)).not.toBeInTheDocument();
+  });
+
+  it('GET /me/planos com erro: sem a linha, e o resto da página igual', async () => {
+    planosServico.listar.mockRejectedValue(erroDosPlanos);
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    await act(async () => {});
+    expect(secao.queryByText(/^No plano /)).not.toBeInTheDocument();
+    expect(secao.getByText('Presença')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Fatura em aberto' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Histórico de faturas' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('a leitura dos planos não segura a página', async () => {
+    planosServico.listar.mockReturnValue(new Promise(() => {}));
+    render(<PlanoPage />);
+    expect(await screen.findByRole('heading', { name: 'Seu plano' })).toBeInTheDocument();
+    expect(screen.getByRole('main')).not.toHaveAttribute('aria-busy', 'true');
   });
 });

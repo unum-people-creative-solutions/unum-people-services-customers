@@ -85,8 +85,9 @@ function Acao({
     );
   }
 
-  // Sem fatura registrada (ou registrada sem link): não há o que pagar pela tela.
-  if (!resumo.fatura?.link) return <LinhaSemLink />;
+  // Sem fatura registrada (ou registrada sem link): não há o que pagar pela tela; a linha
+  // do e-mail fica embaixo do texto (LinhaSemLink).
+  if (!resumo.fatura?.link) return null;
 
   const { link, vencimento } = resumo.fatura;
   return (
@@ -118,10 +119,12 @@ export default function FaixaDeCobranca() {
     return (
       <section aria-label="Aviso de cobrança" className="bg-red-50 border-b border-red-200 md:border-b-0 md:border-l-4 md:border-red-500">
         <div role="alert" className="max-w-6xl mx-auto px-6 py-3 flex flex-col md:flex-row md:items-center gap-3">
-          <AlertCircle size={20} aria-hidden="true" className="text-red-500 shrink-0" />
-          <div className="flex-1">
-            <h2 className="font-bold text-red-800 text-sm">Erro</h2>
-            <p className="text-red-700 text-sm mt-1">Não foi possível conferir a situação da sua fatura.</p>
+          <div className="flex items-start gap-3 flex-1">
+            <AlertCircle size={20} aria-hidden="true" className="text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <h2 className="font-bold text-red-800 text-sm">Erro</h2>
+              <p className="text-red-700 text-sm mt-1">Não foi possível conferir a situação da sua fatura.</p>
+            </div>
           </div>
           <button type="button" onClick={() => { recarregar().catch(() => undefined); }} className={BOTAO_SECUNDARIO}>
             Tentar de novo
@@ -205,6 +208,11 @@ export default function FaixaDeCobranca() {
                 </>
               )}
             </div>
+            {podePagar && resumo.pode_gerir && !resumo.fatura?.link && (
+              <div className="mt-1">
+                <LinhaSemLink />
+              </div>
+            )}
             {emEspera && espera.falhou && (
               <p role="alert" className="mt-1 font-semibold">
                 Não foi possível conferir o pagamento agora. Tente de novo em instantes.

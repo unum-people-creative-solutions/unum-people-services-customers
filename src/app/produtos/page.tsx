@@ -16,7 +16,6 @@ import {
 import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
-import SubscriptionCancel from "@/components/SubscriptionCancel";
 import { useCobranca } from "@/contexts/CobrancaContext";
 import { nomeDaSituacao } from "@/lib/cobrancaTexto";
 
@@ -365,10 +364,14 @@ export default function ProductsPage() {
           </section>
         </div>
 
-        {/* portal-cancelamento RF-C2: cancelamento e arrependimento da assinatura */}
-        <div className="mt-8">
-          <SubscriptionCancel tenantId={activeTenantId} />
-        </div>
+        {/* cobranca-e-plano-do-cliente RF3-02 (BP-T §9.6): o cancelamento fica em Plano e faturas. */}
+        <p className="mt-8 text-sm text-gray-600">
+          Para ver faturas ou cancelar a assinatura, vá a{" "}
+          <a href="/plano" className="font-semibold text-brand-blue underline hover:brightness-110">
+            Plano e faturas
+          </a>
+          .
+        </p>
       </main>
     </div>
   );

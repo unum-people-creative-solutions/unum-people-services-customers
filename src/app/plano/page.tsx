@@ -8,6 +8,7 @@ import AppHeader from '@/components/AppHeader';
 import FaturaEmAberto from '@/components/plano/FaturaEmAberto';
 import HistoricoDeFaturas from '@/components/plano/HistoricoDeFaturas';
 import SeuPlano from '@/components/plano/SeuPlano';
+import SubscriptionCancel from '@/components/SubscriptionCancel';
 import { useTenant } from '@/contexts/TenantContext';
 import { ehRecusaPorPermissao } from '@/services/api';
 import { FaturasService } from '@/services/cobranca';
@@ -132,6 +133,10 @@ export default function PlanoPage() {
                 podeGerir={estado.dados.pode_gerir}
                 nomeDaEmpresa={nomeDaEmpresa}
               />
+            </div>
+            {/* BP-T §9.6: o cancelamento veio de /produtos, sem mudança por dentro. */}
+            <div className="md:col-span-2">
+              <SubscriptionCancel tenantId={activeTenantId} />
             </div>
           </div>
         )}

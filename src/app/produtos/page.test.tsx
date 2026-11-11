@@ -520,3 +520,38 @@ describe("ProductsPage — Status da Conta (RF2-34)", () => {
     expect(valorDoStatus()).not.toHaveAttribute("aria-busy", "true");
   });
 });
+
+// spec: cobranca-e-plano-do-cliente RF3-02, T59 (BP-T §9.6): o cancelamento sai de /produtos.
+describe("ProductsPage — Assinatura foi para Plano e faturas (T59)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (useTenant as any).mockReturnValue({
+      activeTenantId: "tenant-123",
+      availableTenants: [{ id: "tenant-123", nome_negocio: "Padaria Zé", enabled_services: ["site", "crm", "blog"] }],
+      isMultiTenant: false,
+      switchTenant: vi.fn(),
+      isLoadingTenants: false,
+    });
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "https://padariaze.com.br",
+      enabled_services: ["site", "crm", "blog"],
+      plan_name: "Presença",
+      status: "ATIVO",
+    } satisfies TenantResponse);
+  });
+
+  it("não mostra o cancelamento (nem lê a prévia) e leva a /plano", async () => {
+    render(<ProductsPage />);
+    await waitFor(() => expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument());
+
+    const linha = screen.getByText(
+      (_conteudo, elemento) =>
+        elemento?.tagName === "P" &&
+        elemento.textContent === "Para ver faturas ou cancelar a assinatura, vá a Plano e faturas.",
+    );
+    expect(within(linha).getByRole("link", { name: "Plano e faturas" })).toHaveAttribute("href", "/plano");
+    expect(screen.queryByRole("heading", { name: "Assinatura" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Carregando assinatura…")).not.toBeInTheDocument();
+    expect(CancellationService.getPreview).not.toHaveBeenCalled();
+  });
+});

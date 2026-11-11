@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { CancellationPreview } from '@/services/api';
 import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 import {
   planoEFaturasDaPadaria,
@@ -24,6 +25,12 @@ const tenant = vi.hoisted(() => ({
 vi.mock('@/contexts/TenantContext', () => ({ useTenant: () => tenant }));
 vi.mock('@/components/AppHeader', () => ({ default: () => <header>cabeçalho</header> }));
 
+const cancelamento = vi.hoisted(() => ({ getPreview: vi.fn(), request: vi.fn() }));
+vi.mock('@/services/api', async () => {
+  const real = await vi.importActual<typeof import('@/services/api')>('@/services/api');
+  return { ...real, CancellationService: cancelamento };
+});
+
 const cobranca = vi.hoisted(() => ({
   resumo: null as ResumoDeCobranca | null,
   carregando: false,
@@ -35,6 +42,18 @@ vi.mock('@/contexts/CobrancaContext', () => ({ useCobranca: () => cobranca }));
 import PlanoPage from './page';
 
 const ID_DA_PADARIA = '3f2b8c1e-9d4a-4e7b-a6c5-1b2d3e4f5a6b';
+
+// Prévia do cancelamento que deixa o SubscriptionCancel mostrar a seção "Assinatura".
+const PREVIA_QUE_CANCELA: CancellationPreview = {
+  can_cancel: true,
+  reason: '',
+  kind: 'fim_de_periodo',
+  effective_at: '2026-12-05',
+  refund: null,
+  refund_deadline: '',
+  purge_days: 30,
+  scheduled: null,
+};
 
 function adiada<T>() {
   let resolver!: (valor: T) => void;
@@ -49,6 +68,7 @@ function adiada<T>() {
 describe('/plano: estrutura e estados (T54)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cancelamento.getPreview.mockResolvedValue(PREVIA_QUE_CANCELA);
     simularTela(true);
     tenant.activeTenantId = ID_DA_PADARIA;
     tenant.activeTenantName = 'Padaria Zé';
@@ -64,6 +84,7 @@ describe('/plano: estrutura e estados (T54)', () => {
     expect(screen.getByText('O plano da Padaria Zé, a próxima fatura e o histórico.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Fatura em aberto' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Histórico de faturas' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Assinatura' })).toBeInTheDocument();
     expect(servico.planoEFaturas).toHaveBeenCalledWith(ID_DA_PADARIA);
     expect(screen.getByRole('main')).not.toHaveAttribute('aria-busy', 'true');
   });
@@ -228,6 +249,30 @@ describe('/plano: histórico (T57, BP-T §15.1)', () => {
     expect(
       screen.getByText('Os links das faturas e das notas fiscais aparecem só para quem gere o contrato.'),
     ).toBeInTheDocument();
+  });
+});
+
+describe('/plano: "Assinatura" (T59, BP-T §9.6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    simularTela(true);
+    tenant.activeTenantId = ID_DA_PADARIA;
+    tenant.activeTenantName = 'Padaria Zé';
+    tenant.isLoadingTenants = false;
+    cobranca.resumo = resumoEmDia;
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadaria);
+    cancelamento.getPreview.mockResolvedValue(PREVIA_QUE_CANCELA);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('o cancelamento da assinatura fica no fim de /plano, com a empresa ativa', async () => {
+    render(<PlanoPage />);
+    const titulo = await screen.findByRole('heading', { name: 'Assinatura' });
+    expect(cancelamento.getPreview).toHaveBeenCalledWith(ID_DA_PADARIA);
+    expect(within(titulo.closest('section') as HTMLElement).getByRole('button', { name: 'Cancelar assinatura' })).toBeInTheDocument();
+    // Depois do histórico, no fim da página.
+    const historico = screen.getByRole('heading', { name: 'Histórico de faturas' });
+    expect(historico.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 

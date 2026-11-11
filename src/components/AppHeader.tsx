@@ -36,8 +36,8 @@ export default function AppHeader() {
 
   return (
     <header className="bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-10 shadow-sm">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="flex items-center gap-3 shrink-0">
           <Image
             src="/images/logo_simbolo.webp"
             alt="Unum People"

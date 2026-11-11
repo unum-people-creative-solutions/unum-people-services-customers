@@ -1,9 +1,17 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 import type { PlanoParaTroca } from '@/types/planos';
-import { planoEFaturasDaPadaria, resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
+import {
+  planoEFaturasDaPadaria,
+  resumoBloqueado,
+  resumoCancelada,
+  resumoEmAtraso,
+  resumoEmDia,
+  resumoForaDoAr,
+  resumoPausada,
+} from '@/test/cobrancaFixtures';
 import { basicoDowngrade, captacaoUpgrade, planosDaPadaria, planosSoOAtual, presencaAtual } from '@/test/planosFixtures';
 import { simularTela } from '@/test/telaLarga';
 
@@ -37,6 +45,7 @@ import MudarDePlanoPage from './page';
 const ID_DA_PADARIA = '3f2b8c1e-9d4a-4e7b-a6c5-1b2d3e4f5a6b';
 const EMAIL = 'mailto:atendimento@unumpeople.com.br';
 const TEXTO_DO_MENOR = 'Quer um plano menor? Escreva para atendimento@unumpeople.com.br e a gente faz a troca para você.';
+const CONTA_EM_DIA = 'A troca de plano só pode ser feita com a conta em dia.';
 const TEXTO_DO_ANUAL =
   'Seu contrato é anual. Para mudar de plano, escreva para atendimento@unumpeople.com.br e a gente faz a troca para você.';
 
@@ -161,6 +170,59 @@ describe('/plano/mudar (T82)', () => {
     const botao = screen.getByRole('button', { name: 'Escolher o Captação' });
     expect(botao).toBeDisabled();
     expect(botao).toHaveAccessibleDescription('Pague a fatura em atraso para escolher este plano.');
+  });
+
+  // L-F3 (validation-final, decisão do orquestrador): "Pague a fatura em atraso…" só com atraso
+  // de verdade; conta pausada, cancelada ou em outra situação lê o texto de conta em dia.
+  it.each([
+    ['bloqueado', resumoBloqueado],
+    ['fora_do_ar', resumoForaDoAr],
+  ])('%s: o mesmo aviso de fatura em atraso no topo e nos botões', async (_situacao, resumo) => {
+    cobranca.resumo = resumo;
+    await abrir();
+    expect(screen.getByText('Pague a fatura em atraso para mudar de plano.')).toBeInTheDocument();
+    expect(screen.queryByText(CONTA_EM_DIA)).not.toBeInTheDocument();
+    const botao = screen.getByRole('button', { name: 'Escolher o Captação' });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAccessibleDescription('Pague a fatura em atraso para escolher este plano.');
+  });
+
+  it.each([
+    ['pausada', resumoPausada],
+    ['cancelada', resumoCancelada],
+    ['outra', { ...resumoEmDia, situacao: 'outra' } as ResumoDeCobranca],
+  ])('%s: aviso de conta em dia no topo e nos botões, nunca "Pague a fatura em atraso"', async (_situacao, resumo) => {
+    cobranca.resumo = resumo;
+    await abrir();
+    // Um no topo e um no cartão do Captação, como motivo do botão.
+    expect(screen.getAllByText(CONTA_EM_DIA)).toHaveLength(2);
+    expect(within(screen.getByRole('region', { name: 'Captação' })).getByText(CONTA_EM_DIA)).toBeInTheDocument();
+    expect(screen.queryByText(/Pague a fatura em atraso/)).not.toBeInTheDocument();
+    const botao = screen.getByRole('button', { name: 'Escolher o Captação' });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAccessibleDescription(CONTA_EM_DIA);
+  });
+
+  it('409 conta_nao_ativa: o texto segue a situação do resumo da hora do erro', async () => {
+    planos.mudar.mockResolvedValue({ ok: false, erro: 'conta_nao_ativa' });
+    const { rerender } = render(<MudarDePlanoPage />);
+    await screen.findByRole('region', { name: 'Presença' });
+    await userEvent.click(screen.getByRole('button', { name: 'Escolher o Captação' }));
+    let dialogo = screen.getByRole('dialog', { name: 'Mudar para o plano Captação?' });
+
+    // Resumo ainda em dia: a API recusou, mas a tela não sabe de atraso nenhum.
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar a troca' }));
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(CONTA_EM_DIA);
+    expect(within(dialogo).getByRole('alert')).not.toHaveTextContent(/Pague a fatura em atraso/);
+
+    // A conta entrou em atraso com a tela aberta: o resumo novo muda o texto do 409.
+    cobranca.resumo = resumoEmAtraso;
+    rerender(<MudarDePlanoPage />);
+    dialogo = screen.getByRole('dialog', { name: 'Mudar para o plano Captação?' });
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar a troca' }));
+    await waitFor(() =>
+      expect(within(dialogo).getByRole('alert')).toHaveTextContent('Pague a fatura em atraso para mudar de plano.'),
+    );
   });
 
   it('sem pode_gerir: cartões sem botões, o aviso de quem gere e "Avise o responsável pela conta"', async () => {

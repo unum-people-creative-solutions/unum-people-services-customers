@@ -6,18 +6,18 @@ import { useId, useRef, useState } from 'react';
 import { AlertCircle, Info } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { formatarDataCompleta, formatarReais } from '@/lib/cobrancaTexto';
-import { diferencasDoPlano, textoDoIndisponivel } from '@/lib/planosTexto';
+import { contaEmAtraso, diferencasDoPlano, textoDoIndisponivel, TROCA_SO_COM_A_CONTA_EM_DIA } from '@/lib/planosTexto';
 import { ehRecusaPorPermissao, MENSAGEM_SEM_PERMISSAO, TermsService } from '@/services/api';
 import { PlanosService } from '@/services/planos';
-import type { PlanoDoCliente } from '@/types/cobranca';
+import type { PlanoDoCliente, SituacaoDeCobranca } from '@/types/cobranca';
 import type { ErroDaTroca, PlanoParaTroca } from '@/types/planos';
 
 const TEXTO_GENERICO = 'Não foi possível trocar o plano agora. Nada foi alterado. Tente de novo em alguns minutos.';
 
-function textoDoErro(erro: ErroDaTroca, novo: PlanoParaTroca): string {
+function textoDoErro(erro: ErroDaTroca, novo: PlanoParaTroca, situacao: SituacaoDeCobranca | null): string {
   switch (erro) {
     case 'conta_nao_ativa':
-      return 'Pague a fatura em atraso para mudar de plano.';
+      return contaEmAtraso(situacao) ? 'Pague a fatura em atraso para mudar de plano.' : TROCA_SO_COM_A_CONTA_EM_DIA;
     case 'contrato_anual':
       return 'Seu contrato é anual. Para mudar de plano, escreva para atendimento@unumpeople.com.br e a gente faz a troca para você.';
     case 'dominio_ligado':
@@ -61,12 +61,15 @@ export default function ConfirmarPlano({
   atual,
   novo,
   planoDoCliente,
+  situacao,
   aoFechar,
 }: {
   tenantId: string;
   atual: PlanoParaTroca;
   novo: PlanoParaTroca;
   planoDoCliente: PlanoDoCliente;
+  // Situação do resumo de /me/cobranca na hora do erro (null sem resumo): decide o texto do 409.
+  situacao: SituacaoDeCobranca | null;
   aoFechar: () => void;
 }) {
   const cancelarRef = useRef<HTMLButtonElement>(null);
@@ -94,7 +97,7 @@ export default function ConfirmarPlano({
     try {
       const resultado = await PlanosService.mudar(tenantId, novo.slug);
       if (!resultado.ok) {
-        falhar(textoDoErro(resultado.erro, novo));
+        falhar(textoDoErro(resultado.erro, novo, situacao));
         return;
       }
     } catch (err) {

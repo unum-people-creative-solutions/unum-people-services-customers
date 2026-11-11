@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { TermStatusItem } from '@/services/api';
-import type { PlanoDoCliente } from '@/types/cobranca';
+import type { PlanoDoCliente, SituacaoDeCobranca } from '@/types/cobranca';
 import type { ErroDaTroca, PlanoParaTroca } from '@/types/planos';
 import { planoEFaturasDaPadaria } from '@/test/cobrancaFixtures';
 import { captacaoUpgrade, presencaAtual } from '@/test/planosFixtures';
@@ -27,8 +27,22 @@ const cartao: PlanoDoCliente = { ...pix, forma_de_pagamento: 'CREDIT_CARD' };
 
 const TEXTO_GENERICO = 'Não foi possível trocar o plano agora. Nada foi alterado. Tente de novo em alguns minutos.';
 
-function abrir(plano: PlanoDoCliente = pix, aoFechar = vi.fn(), novo: PlanoParaTroca = captacaoUpgrade) {
-  render(<ConfirmarPlano tenantId={ID} atual={presencaAtual} novo={novo} planoDoCliente={plano} aoFechar={aoFechar} />);
+function abrir(
+  plano: PlanoDoCliente = pix,
+  aoFechar = vi.fn(),
+  novo: PlanoParaTroca = captacaoUpgrade,
+  situacao: SituacaoDeCobranca | null = 'em_dia',
+) {
+  render(
+    <ConfirmarPlano
+      tenantId={ID}
+      atual={presencaAtual}
+      novo={novo}
+      planoDoCliente={plano}
+      situacao={situacao}
+      aoFechar={aoFechar}
+    />,
+  );
   return screen.getByRole('dialog', { name: 'Mudar para o plano Captação?' });
 }
 
@@ -68,7 +82,14 @@ describe('ConfirmarPlano (T83)', () => {
   it('aviso do cartão só com forma de pagamento CREDIT_CARD', () => {
     const aviso = 'Você paga no cartão. A próxima fatura chega como link, e você informa o cartão de novo para pagar.';
     const { unmount } = render(
-      <ConfirmarPlano tenantId={ID} atual={presencaAtual} novo={captacaoUpgrade} planoDoCliente={pix} aoFechar={vi.fn()} />,
+      <ConfirmarPlano
+        tenantId={ID}
+        atual={presencaAtual}
+        novo={captacaoUpgrade}
+        planoDoCliente={pix}
+        situacao="em_dia"
+        aoFechar={vi.fn()}
+      />,
     );
     expect(screen.queryByText(aviso)).not.toBeInTheDocument();
     unmount();
@@ -110,7 +131,6 @@ describe('ConfirmarPlano (T83)', () => {
   // TASK-FIX-F5-03: dominio_ligado só existe para plano destino sem domínio próprio.
   const semDominio: PlanoParaTroca = { ...captacaoUpgrade, sem_dominio_proprio: true };
   const textosDo409: [ErroDaTroca, string, PlanoParaTroca?][] = [
-    ['conta_nao_ativa', 'Pague a fatura em atraso para mudar de plano.'],
     [
       'contrato_anual',
       'Seu contrato é anual. Para mudar de plano, escreva para atendimento@unumpeople.com.br e a gente faz a troca para você.',
@@ -137,6 +157,30 @@ describe('ConfirmarPlano (T83)', () => {
     const dialogo = abrir(pix, vi.fn(), novo ?? captacaoUpgrade);
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar a troca' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(texto);
+    expect(within(dialogo).getByRole('button', { name: 'Confirmar a troca' })).toBeEnabled();
+  });
+
+  // L-F3 (validation-final, decisão do orquestrador): o 409 conta_nao_ativa só fala de fatura
+  // em atraso quando o resumo mostra atraso; nos outros casos (inclusive sem resumo), conta em dia.
+  const CONTA_EM_DIA = 'A troca de plano só pode ser feita com a conta em dia.';
+  const textosDaContaNaoAtiva: [SituacaoDeCobranca | null, string][] = [
+    ['em_atraso', 'Pague a fatura em atraso para mudar de plano.'],
+    ['bloqueado', 'Pague a fatura em atraso para mudar de plano.'],
+    ['fora_do_ar', 'Pague a fatura em atraso para mudar de plano.'],
+    ['pausada', CONTA_EM_DIA],
+    ['cancelada', CONTA_EM_DIA],
+    ['outra', CONTA_EM_DIA],
+    ['em_dia', CONTA_EM_DIA],
+    [null, CONTA_EM_DIA],
+  ];
+
+  it.each(textosDaContaNaoAtiva)('409 conta_nao_ativa com o resumo em %s: "%s"', async (situacao, texto) => {
+    planos.mudar.mockResolvedValue({ ok: false, erro: 'conta_nao_ativa' });
+    const dialogo = abrir(pix, vi.fn(), captacaoUpgrade, situacao);
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar a troca' }));
+    const alerta = await within(dialogo).findByRole('alert');
+    expect(alerta).toHaveTextContent(texto);
+    if (texto === CONTA_EM_DIA) expect(alerta).not.toHaveTextContent(/Pague a fatura em atraso/);
     expect(within(dialogo).getByRole('button', { name: 'Confirmar a troca' })).toBeEnabled();
   });
 

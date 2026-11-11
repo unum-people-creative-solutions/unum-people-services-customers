@@ -12,7 +12,7 @@ import ConfirmarPlano from '@/components/plano/ConfirmarPlano';
 import { useCobranca } from '@/contexts/CobrancaContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useTelaLarga } from '@/hooks/useTelaLarga';
-import { textoDoIndisponivel } from '@/lib/planosTexto';
+import { contaEmAtraso, textoDoIndisponivel, TROCA_SO_COM_A_CONTA_EM_DIA } from '@/lib/planosTexto';
 import { FaturasService } from '@/services/cobranca';
 import { PlanosService } from '@/services/planos';
 import type { PlanoEFaturas } from '@/types/cobranca';
@@ -154,13 +154,19 @@ export default function MudarDePlanoPage() {
               .filter((p) => p.direcao === 'atual' || (!anual && p.direcao === 'upgrade'))
               .sort((a, b) => a.valor - b.valor);
             const temUpgrade = visiveis.some((p) => p.direcao === 'upgrade');
-            const emAtraso = resumo.situacao !== 'em_dia';
+            // Só com a conta em dia; o texto de atraso só quando há atraso de verdade (L-F3).
+            const contaNaoAtiva = resumo.situacao !== 'em_dia';
+            const atraso = contaEmAtraso(resumo.situacao);
             const linkDaFatura = resumo.pode_gerir ? resumo.fatura?.link : undefined;
 
             const botaoDo = (plano: PlanoParaTroca): BotaoDoCartao | null => {
               if (plano.direcao !== 'upgrade' || !resumo.pode_gerir) return null;
-              const desabilitadoPor = emAtraso ? (
-                'Pague a fatura em atraso para escolher este plano.'
+              const desabilitadoPor = contaNaoAtiva ? (
+                atraso ? (
+                  'Pague a fatura em atraso para escolher este plano.'
+                ) : (
+                  TROCA_SO_COM_A_CONTA_EM_DIA
+                )
               ) : plano.indisponivel_por ? (
                 <MotivoDoIndisponivel plano={plano} />
               ) : null;
@@ -169,9 +175,11 @@ export default function MudarDePlanoPage() {
 
             return (
               <>
-                {emAtraso && (
+                {contaNaoAtiva && (
                   <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex flex-wrap items-center gap-3 justify-between">
-                    <p className="text-sm font-semibold">Pague a fatura em atraso para mudar de plano.</p>
+                    <p className="text-sm font-semibold">
+                      {atraso ? 'Pague a fatura em atraso para mudar de plano.' : TROCA_SO_COM_A_CONTA_EM_DIA}
+                    </p>
                     {linkDaFatura && (
                       <a
                         href={linkDaFatura}
@@ -213,6 +221,7 @@ export default function MudarDePlanoPage() {
                     atual={atual}
                     novo={escolhido}
                     planoDoCliente={planoEFaturas.plano}
+                    situacao={resumo.situacao}
                     aoFechar={() => setEscolhido(null)}
                   />
                 )}

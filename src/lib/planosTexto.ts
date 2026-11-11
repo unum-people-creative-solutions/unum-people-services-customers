@@ -1,6 +1,15 @@
 // Textos da troca de plano no Portal (cobranca-e-plano-do-cliente RF5-01, BP-T §11.2,
 // §11.3, §11.5, §11.7).
+import type { SituacaoDeCobranca } from '@/types/cobranca';
 import type { MotivoIndisponivel, PlanoParaTroca } from '@/types/planos';
+
+// L-F3 (validation-final): "Pague a fatura em atraso…" só quando há atraso de verdade. Conta
+// pausada, cancelada, em outra situação ou sem resumo lê o texto de conta em dia.
+export const TROCA_SO_COM_A_CONTA_EM_DIA = 'A troca de plano só pode ser feita com a conta em dia.';
+
+export function contaEmAtraso(situacao: SituacaoDeCobranca | null): boolean {
+  return situacao === 'em_atraso' || situacao === 'bloqueado' || situacao === 'fora_do_ar';
+}
 
 function paginasNoTexto(paginas: number): string {
   return `até ${paginas} ${paginas === 1 ? 'página' : 'páginas'}`;

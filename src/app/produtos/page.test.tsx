@@ -4,6 +4,16 @@ import ProductsPage from "./page";
 import { TenantService, CancellationService, type PaginaDoConfigurador, type TenantResponse } from "@/services/api";
 import { logoutFromHostedUI } from "@/lib/pkce";
 import { useTenant } from "@/contexts/TenantContext";
+import { useCobranca } from "@/contexts/CobrancaContext";
+import type { ResumoDeCobranca } from "@/types/cobranca";
+import {
+  resumoBloqueado,
+  resumoCancelada,
+  resumoEmAtraso,
+  resumoEmDia,
+  resumoForaDoAr,
+  resumoPausada,
+} from "@/test/cobrancaFixtures";
 
 // Mocks
 vi.mock("@/services/api", () => ({
@@ -43,6 +53,16 @@ vi.mock("@/contexts/TenantContext", () => ({
     isMultiTenant: false,
     switchTenant: vi.fn(),
     isLoadingTenants: false,
+  })),
+}));
+
+// cobranca-e-plano-do-cliente RF2-34: a página lê o resumo de cobrança do CobrancaProvider.
+vi.mock("@/contexts/CobrancaContext", () => ({
+  useCobranca: vi.fn(() => ({
+    resumo: { situacao: "em_dia", fatura: null, ferramentas_bloqueadas: [], pode_gerir: true },
+    carregando: false,
+    erro: false,
+    recarregar: vi.fn(),
   })),
 }));
 
@@ -423,5 +443,115 @@ describe("ProductsPage — página ainda não publicada (T-602)", () => {
       a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
     );
     expect(naOrdemDoDocumento.map(([nome]) => nome)).toEqual(ordemEsperada.map(([nome]) => nome));
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF2-34 (T43): "Status da Conta" pelo resumo de cobrança.
+describe("ProductsPage — Status da Conta (RF2-34)", () => {
+  function comCobranca(estado: { resumo: ResumoDeCobranca | null; carregando: boolean; erro: boolean }) {
+    vi.mocked(useCobranca).mockReturnValue({ ...estado, recarregar: vi.fn() });
+  }
+
+  async function abrirCom(status: string) {
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "",
+      enabled_services: ["site", "crm", "blog"],
+      plan_name: "Captação",
+      status,
+    } satisfies TenantResponse);
+    render(<ProductsPage />);
+    await waitFor(() => expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument());
+  }
+
+  function valorDoStatus() {
+    return screen.getByText("Status da Conta").nextElementSibling as HTMLElement;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (useTenant as any).mockReturnValue({
+      activeTenantId: "tenant-123",
+      availableTenants: [{ id: "tenant-123", nome_negocio: "Padaria Zé", enabled_services: ["site", "crm", "blog"] }],
+      isMultiTenant: false,
+      switchTenant: vi.fn(),
+      isLoadingTenants: false,
+    });
+  });
+
+  // Cada situação com o corpo que a API manda para ela (TECH-DESIGN T4 e §4.1).
+  it.each([
+    ["em_dia", "Em dia", resumoEmDia],
+    ["em_atraso", "Fatura em atraso", resumoEmAtraso],
+    ["bloqueado", "Acesso bloqueado", resumoBloqueado],
+    ["fora_do_ar", "Fora do ar", resumoForaDoAr],
+    ["pausada", "Pausada", resumoPausada],
+    ["cancelada", "Cancelada", resumoCancelada],
+  ] as const)("situacao %s mostra \"%s\", não o código cru do status", async (situacao, nome, resumo) => {
+    expect(resumo.situacao).toBe(situacao);
+    comCobranca({ resumo, carregando: false, erro: false });
+    await abrirCom("INADIMPLENTE");
+    expect(valorDoStatus().textContent).toBe(nome);
+    expect(screen.queryByText("INADIMPLENTE")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["AGUARDANDO_ATIVACAO", "Aguardando o primeiro pagamento"],
+    ["PENDENTE_ASAAS", "Em ativação"],
+    ["SUSPENSO", "Suspensa"],
+    ["EXCLUINDO", "Cancelada"],
+    ["OUTRO_STATUS", "Fale com a gente"],
+  ])("situacao outra com tenant.status %s mostra \"%s\"", async (status, nome) => {
+    comCobranca({ resumo: { ...resumoEmDia, situacao: "outra" }, carregando: false, erro: false });
+    await abrirCom(status);
+    expect(valorDoStatus().textContent).toBe(nome);
+  });
+
+  it("resumo carregando: \"…\" com aria-busy=\"true\"", async () => {
+    comCobranca({ resumo: null, carregando: true, erro: false });
+    await abrirCom("ATIVO");
+    expect(valorDoStatus().textContent).toBe("…");
+    expect(valorDoStatus()).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("resumo com erro: \"Não disponível\"", async () => {
+    comCobranca({ resumo: null, carregando: false, erro: true });
+    await abrirCom("ATIVO");
+    expect(valorDoStatus().textContent).toBe("Não disponível");
+    expect(valorDoStatus()).not.toHaveAttribute("aria-busy", "true");
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF3-02, T59 (BP-T §9.6): o cancelamento sai de /produtos.
+describe("ProductsPage — Assinatura foi para Plano e faturas (T59)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (useTenant as any).mockReturnValue({
+      activeTenantId: "tenant-123",
+      availableTenants: [{ id: "tenant-123", nome_negocio: "Padaria Zé", enabled_services: ["site", "crm", "blog"] }],
+      isMultiTenant: false,
+      switchTenant: vi.fn(),
+      isLoadingTenants: false,
+    });
+    (TenantService.getMe as any).mockResolvedValue({
+      site_url: "https://padariaze.com.br",
+      enabled_services: ["site", "crm", "blog"],
+      plan_name: "Presença",
+      status: "ATIVO",
+    } satisfies TenantResponse);
+  });
+
+  it("não mostra o cancelamento (nem lê a prévia) e leva a /plano", async () => {
+    render(<ProductsPage />);
+    await waitFor(() => expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument());
+
+    const linha = screen.getByText(
+      (_conteudo, elemento) =>
+        elemento?.tagName === "P" &&
+        elemento.textContent === "Para ver faturas ou cancelar a assinatura, vá a Plano e faturas.",
+    );
+    expect(within(linha).getByRole("link", { name: "Plano e faturas" })).toHaveAttribute("href", "/plano");
+    expect(screen.queryByRole("heading", { name: "Assinatura" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Carregando assinatura…")).not.toBeInTheDocument();
+    expect(CancellationService.getPreview).not.toHaveBeenCalled();
   });
 });

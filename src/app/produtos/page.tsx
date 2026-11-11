@@ -16,7 +16,10 @@ import {
 import AppHeader from "@/components/AppHeader";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
-import SubscriptionCancel from "@/components/SubscriptionCancel";
+import { useCobranca } from "@/contexts/CobrancaContext";
+import { nomeDaSituacao } from "@/lib/cobrancaTexto";
+import { PlanosService } from "@/services/planos";
+import type { PlanoParaTroca } from "@/types/planos";
 
 // RF-5A-28: o editor de cada página do configurador abre pelo slug dela.
 function editorDaPagina(slug: string): string {
@@ -38,12 +41,54 @@ function temPermissao(estado: EstadoAcessos, ferramentaId: string, permissao: st
   return ferramenta.permissoes.includes(permissao);
 }
 
+// cobranca-e-plano-do-cliente RF5-03 (BP-T §11.7): o upgrade mais barato com o serviço.
+// Sem a leitura (erro) ou sem plano acima com ele: null, e o cartão diz "Não incluso".
+function planoComServico(planos: PlanoParaTroca[] | null, servico: string): PlanoParaTroca | null {
+  if (!planos) return null;
+  return (
+    planos
+      .filter((p) => p.direcao === "upgrade" && p.servicos.includes(servico))
+      .sort((a, b) => a.valor - b.valor)[0] ?? null
+  );
+}
+
+function ForaDoPlano({ plano }: { plano: PlanoParaTroca | null }) {
+  if (!plano) {
+    return (
+      <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
+        <Lock size={14} />
+        Não incluso neste plano
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-gray-700 text-center">{`Disponível no plano ${plano.nome}`}</p>
+      <a
+        href="/plano/mudar"
+        className="w-full bg-white border border-brand-blue text-brand-blue py-2.5 px-4 rounded-xl font-bold hover:bg-blue-50 transition flex items-center justify-center gap-2 text-sm"
+      >
+        Ver planos
+        <ArrowRight size={16} />
+      </a>
+    </div>
+  );
+}
+
+const SELO_FORA_DO_PLANO = (
+  <span className="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 px-2 py-0.5 rounded border border-gray-200">
+    Fora do seu plano
+  </span>
+);
+
 export default function ProductsPage() {
   const { activeTenantId, isLoadingTenants } = useTenant();
+  const cobranca = useCobranca();
   const [tenant, setTenant] = useState<TenantResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acessosEstado, setAcessosEstado] = useState<EstadoAcessos>({ status: "carregando" });
+  const [planos, setPlanos] = useState<PlanoParaTroca[] | null>(null);
   const requisicaoRef = useRef(0);
 
   const fetchTenant = async (tenantId?: string) => {
@@ -51,10 +96,21 @@ export default function ProductsPage() {
     setLoading(true);
     setError(null);
     setAcessosEstado({ status: "carregando" });
+    setPlanos(null);
 
-    // As duas leituras começam juntas; o atraso de uma empresa anterior é ignorado.
+    // As leituras começam juntas; o atraso de uma empresa anterior é ignorado.
     const tenantPromise = TenantService.getMe(tenantId);
     const acessosPromise = AcessosService.get(tenantId);
+    // GET /me/planos uma vez por empresa (RF5-03); falha só tira a sugestão dos cartões.
+    if (tenantId) {
+      PlanosService.listar(tenantId)
+        .then((lista) => {
+          if (requisicao === requisicaoRef.current) setPlanos(lista);
+        })
+        .catch((err) => {
+          if (requisicao === requisicaoRef.current) console.error("Erro ao ler os planos para a troca:", err);
+        });
+    }
 
     try {
       const res = await tenantPromise;
@@ -134,7 +190,14 @@ export default function ProductsPage() {
             <Settings className="text-white" size={24} />
             <div>
               <p className="text-xs text-white/60 uppercase font-bold tracking-wider">Status da Conta</p>
-              <p className="text-sm font-bold uppercase">{tenant?.status || "Ativo"}</p>
+              {/* cobranca-e-plano-do-cliente RF2-34: nome legível pelo resumo de cobrança. */}
+              {cobranca.carregando ? (
+                <p className="text-sm font-bold" aria-busy="true">…</p>
+              ) : (
+                <p className="text-sm font-bold">
+                  {cobranca.resumo ? nomeDaSituacao(cobranca.resumo, tenant?.status ?? "") : "Não disponível"}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -270,11 +333,7 @@ export default function ProductsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <h4 id="produto-crm" className="text-lg font-bold text-gray-900">CRM Unum</h4>
-                {!isCrmEnabled && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 px-2 py-0.5 rounded border border-gray-200">
-                    Bloqueado
-                  </span>
-                )}
+                {!isCrmEnabled && SELO_FORA_DO_PLANO}
               </div>
               <p className="text-sm text-gray-600 mt-2">
                 Gestão inteligente de leads, funil de vendas integrado e automação de contatos.
@@ -298,10 +357,7 @@ export default function ProductsPage() {
                   </div>
                 ) : null
               ) : (
-                <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
-                  <Lock size={14} />
-                  Não incluso neste plano
-                </div>
+                <ForaDoPlano plano={planoComServico(planos, "crm")} />
               )}
             </div>
           </section>
@@ -318,11 +374,7 @@ export default function ProductsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <h4 id="produto-blog" className="text-lg font-bold text-gray-900">Blog Admin</h4>
-                {!isBlogEnabled && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 px-2 py-0.5 rounded border border-gray-200">
-                    Bloqueado
-                  </span>
-                )}
+                {!isBlogEnabled && SELO_FORA_DO_PLANO}
               </div>
               <p className="text-sm text-gray-600 mt-2">
                 Gerencie seus artigos de blog, SEO, tags e conteúdo institucional em um só painel.
@@ -346,19 +398,20 @@ export default function ProductsPage() {
                   </div>
                 ) : null
               ) : (
-                <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
-                  <Lock size={14} />
-                  Não incluso neste plano
-                </div>
+                <ForaDoPlano plano={planoComServico(planos, "blog")} />
               )}
             </div>
           </section>
         </div>
 
-        {/* portal-cancelamento RF-C2: cancelamento e arrependimento da assinatura */}
-        <div className="mt-8">
-          <SubscriptionCancel tenantId={activeTenantId} />
-        </div>
+        {/* cobranca-e-plano-do-cliente RF3-02 (BP-T §9.6): o cancelamento fica em Plano e faturas. */}
+        <p className="mt-8 text-sm text-gray-600">
+          Para ver faturas ou cancelar a assinatura, vá a{" "}
+          <a href="/plano" className="font-semibold text-brand-blue underline hover:brightness-110">
+            Plano e faturas
+          </a>
+          .
+        </p>
       </main>
     </div>
   );

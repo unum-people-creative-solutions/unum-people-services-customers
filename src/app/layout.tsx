@@ -4,6 +4,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import AuthGuard from "@/components/AuthGuard";
 import { TenantProvider } from "@/contexts/TenantContext";
+import { CobrancaProvider } from "@/contexts/CobrancaContext";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -31,7 +32,9 @@ export default function RootLayout({
         <AuthGuard>
           {/* TenantProvider lê ?tenant_id= via useSearchParams, que exige Suspense. */}
           <Suspense fallback={null}>
-            <TenantProvider>{children}</TenantProvider>
+            <TenantProvider>
+              <CobrancaProvider>{children}</CobrancaProvider>
+            </TenantProvider>
           </Suspense>
         </AuthGuard>
       </body>

@@ -8,6 +8,8 @@ import { TenantService } from '@/services/api';
 interface Tenant {
   id: string;
   nome_negocio: string;
+  // Já vem de GET /me/tenants; a faixa de cobrança cita as ferramentas do plano (RF2-23).
+  enabled_services: string[];
 }
 
 interface TenantContextValue {

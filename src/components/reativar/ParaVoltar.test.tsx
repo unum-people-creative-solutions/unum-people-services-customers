@@ -8,6 +8,8 @@ import {
   resumoBloqueado,
   resumoBloqueadoSemFaturaComReativacao,
   resumoBloqueadoSemFaturaComReativacaoPendente,
+  resumoEmAtraso,
+  resumoEmAtrasoSemFaturaComReativacao,
   resumoEmDia,
   resumoForaDoAr,
   resumoForaDoArComReativacaoPendente,
@@ -71,6 +73,7 @@ const CANCELAMENTO_PEDIDO =
   'Há um pedido de cancelamento nesta conta. Escreva para atendimento@unumpeople.com.br para reativar.';
 const OUTRO_ERRO = 'Não foi possível gerar a fatura agora. Nada foi cobrado. Tente de novo em alguns minutos.';
 const SEM_PERMISSAO = 'Você não tem permissão para fazer isso nesta empresa.';
+const TEM_FATURA = 'Esta conta tem uma fatura para pagar. Veja em Plano e faturas.';
 
 describe('/reativar: gerar a fatura de reativação (T74)', () => {
   beforeEach(() => {
@@ -389,18 +392,81 @@ describe('/reativar: conta em atraso sem fatura para pagar (T104)', () => {
     expect(reativacao.pedir).not.toHaveBeenCalled();
   });
 
-  it('409 nao_pausada (assinatura ativa no Asaas): alerta, relê o resumo uma vez e some o botão, mesmo com o resumo ainda bloqueado com reativacao', async () => {
-    reativacao.pedir.mockResolvedValue({ tipo: 'nao_pausada' });
+  // Validation-f7 L5 (decisão do orquestrador): no estado sem fatura, o 409 quer dizer que a conta
+  // tem fatura para pagar (assinatura ativa ou fatura vencida); o texto troca o "não pode ser
+  // reativada por aqui" da F4.
+  it.each([
     // Resumo relido: outro objeto, ainda bloqueado com reativacao (a API não vê a assinatura ativa).
-    leitura.proximo = { ...resumoBloqueadoSemFaturaComReativacao };
-    await montar(resumoBloqueadoSemFaturaComReativacao);
+    ['o resumo relido ainda bloqueado sem fatura', { ...resumoBloqueadoSemFaturaComReativacao }],
+    // Resumo relido já com a fatura vencida.
+    ['o resumo relido em atraso com fatura', resumoEmAtraso],
+  ])(
+    '409 nao_pausada (assinatura ativa ou fatura vencida), com %s: relê o resumo uma vez, "Esta conta tem uma fatura para pagar. Veja em Plano e faturas." com link para /plano e sem o botão',
+    async (_caso, relido) => {
+      reativacao.pedir.mockResolvedValue({ tipo: 'nao_pausada' });
+      leitura.proximo = relido;
+      await montar(resumoBloqueadoSemFaturaComReativacao);
+
+      await act(async () => {
+        fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+      });
+
+      expect(leitura.recarregar).toHaveBeenCalledTimes(1);
+      const alerta = screen.getByRole('alert');
+      expect(alerta).toHaveTextContent(TEM_FATURA);
+      expect(within(alerta).getByRole('link', { name: 'Plano e faturas' })).toHaveAttribute('href', '/plano');
+      expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Esta conta não pode ser reativada por aqui/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Não encontramos uma fatura em aberto/)).not.toBeInTheDocument();
+    },
+  );
+});
+
+// Validation-f7 L5 (decisão do orquestrador): a linha do T19 só aparece antes de a fatura de
+// reativação existir.
+describe('/reativar: a linha de cima depois de gerar, na conta sem fatura (L5)', () => {
+  const ANTES = 'Não encontramos uma fatura em aberto desta conta. Gere a fatura de R$ 39,90 para pagar e liberar o acesso.';
+  const GERADA = 'A fatura de R$ 39,90 foi gerada. Pague para liberar o acesso.';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    leitura.proximo = null;
+  });
+
+  it('antes de gerar: a linha do T19, sem a linha da fatura gerada', async () => {
+    await montar(resumoEmAtrasoSemFaturaComReativacao);
+    expect(screen.getByText(ANTES)).toBeInTheDocument();
+    expect(screen.queryByText(/foi gerada/)).not.toBeInTheDocument();
+  });
+
+  it('depois da resposta do POST: "A fatura de R$ 39,90 foi gerada. Pague para liberar o acesso." no lugar da linha do T19', async () => {
+    reativacao.pedir.mockResolvedValue(respostaDaReativacao);
+    await montar(resumoEmAtrasoSemFaturaComReativacao);
 
     await act(async () => {
       fireEvent.click(cartao().getByRole('button', { name: GERAR }));
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(NAO_PODE);
-    expect(leitura.recarregar).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
+    expect(screen.getByText(GERADA)).toBeInTheDocument();
+    expect(screen.queryByText(/Não encontramos uma fatura em aberto/)).not.toBeInTheDocument();
+  });
+
+  it('o valor da linha é o da fatura que o POST devolveu', async () => {
+    reativacao.pedir.mockResolvedValue({ ...respostaDaReativacao, valor: 59.9 });
+    await montar(resumoEmAtrasoSemFaturaComReativacao);
+
+    await act(async () => {
+      fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+    });
+
+    expect(screen.getByText('A fatura de R$ 59,90 foi gerada. Pague para liberar o acesso.')).toBeInTheDocument();
+  });
+
+  it('resumo com reativacao.link: a linha da fatura gerada, sem a linha do T19', async () => {
+    await montar(resumoBloqueadoSemFaturaComReativacaoPendente);
+
+    expect(screen.getByText(GERADA)).toBeInTheDocument();
+    expect(screen.queryByText(/Não encontramos uma fatura em aberto/)).not.toBeInTheDocument();
   });
 });

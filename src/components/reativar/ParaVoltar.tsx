@@ -137,6 +137,22 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
     );
   }
 
+  // Validation-f7 L5: no estado sem fatura, o 409 quer dizer que a conta tem fatura para pagar
+  // (assinatura ativa ou fatura vencida no Asaas), qualquer que seja o resumo relido.
+  if (naoPausada && viuReativavel === 'sem_fatura') {
+    return (
+      <Caixa>
+        <p role="alert" className="text-gray-800">
+          Esta conta tem uma fatura para pagar. Veja em{' '}
+          <a href="/plano" className="font-semibold text-brand-blue underline hover:brightness-110">
+            Plano e faturas
+          </a>
+          .
+        </p>
+      </Caixa>
+    );
+  }
+
   if (resumo.situacao !== 'fora_do_ar' && !semFatura) {
     return (
       <Caixa>
@@ -191,7 +207,12 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
 
   return (
     <div className="flex flex-col gap-6">
-      {semFatura ? (
+      {semFatura && (fatura || resumo.reativacao?.link) ? (
+        // Validation-f7 L5: a linha do T19 só vale antes de a fatura de reativação existir.
+        <p className="text-gray-800">
+          A fatura de {formatarReais(fatura?.valor ?? valor)} foi gerada. Pague para liberar o acesso.
+        </p>
+      ) : semFatura ? (
         <p className="text-gray-800">
           Não encontramos uma fatura em aberto desta conta. Gere a fatura de {formatarReais(valor)} para pagar e
           liberar o acesso.

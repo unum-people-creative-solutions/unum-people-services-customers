@@ -102,22 +102,26 @@ export default function PlanoPage() {
             </p>
           </div>
         ) : estado.status === 'erro' ? (
-          <div
-            role="alert"
-            className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex gap-3 items-start shadow-sm"
-          >
-            <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} aria-hidden="true" />
-            <div>
-              <h3 className="font-bold text-red-800 text-sm">Erro</h3>
-              <p className="text-sm text-red-700 mt-1">Não foi possível carregar o plano e as faturas.</p>
-              <button
-                type="button"
-                onClick={tentarDeNovo}
-                className="mt-3 min-h-[44px] text-sm font-bold text-red-800 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
-              >
-                Tentar de novo
-              </button>
+          <div className="flex flex-col gap-6">
+            <div
+              role="alert"
+              className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex gap-3 items-start shadow-sm"
+            >
+              <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} aria-hidden="true" />
+              <div>
+                <h3 className="font-bold text-red-800 text-sm">Erro</h3>
+                <p className="text-sm text-red-700 mt-1">Não foi possível carregar o plano e as faturas.</p>
+                <button
+                  type="button"
+                  onClick={tentarDeNovo}
+                  className="mt-3 min-h-[44px] text-sm font-bold text-red-800 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                >
+                  Tentar de novo
+                </button>
+              </div>
             </div>
+            {/* DV-47: o cancelamento tem a própria leitura; não depende de /me/faturas. */}
+            <SubscriptionCancel tenantId={activeTenantId} />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">

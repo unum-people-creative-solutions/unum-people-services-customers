@@ -274,6 +274,18 @@ describe('/plano: "Assinatura" (T59, BP-T §9.6)', () => {
     const historico = screen.getByRole('heading', { name: 'Histórico de faturas' });
     expect(historico.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  // DV-47: o cancelamento tem a própria leitura e não depende de /me/faturas.
+  it('500 em /me/faturas: o alerta e, abaixo dele, "Cancelar assinatura" com a empresa ativa', async () => {
+    servico.planoEFaturas.mockRejectedValue({ response: { status: 500, data: { error: 'internal_error' } } });
+    render(<PlanoPage />);
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent('Não foi possível carregar o plano e as faturas.');
+    const titulo = await screen.findByRole('heading', { name: 'Assinatura' });
+    expect(cancelamento.getPreview).toHaveBeenCalledWith(ID_DA_PADARIA);
+    expect(within(titulo.closest('section') as HTMLElement).getByRole('button', { name: 'Cancelar assinatura' })).toBeInTheDocument();
+    expect(alerta.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
 
 describe('/plano: "Seu plano" (T55)', () => {

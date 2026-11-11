@@ -221,4 +221,33 @@ describe('/plano/mudar (T82)', () => {
     expect(within(captacao).getByText('Domínio próprio: Sim')).toBeInTheDocument();
     expect(within(captacao).getByText('Blog: Sim')).toBeInTheDocument();
   });
+
+  // TASK-FIX-F5-05 (L5, padrão de divulgação da WAI): aria-controls só aponta para o que
+  // existe; o rótulo alterna entre "Ver tudo" e "Ver menos".
+  it('celular: aria-controls só com a lista aberta e no id dela; rótulo "Ver tudo"/"Ver menos"', async () => {
+    simularTela(false);
+    await abrir();
+    const captacao = screen.getByRole('region', { name: 'Captação' });
+
+    const botao = within(captacao).getByRole('button', { name: 'Ver tudo' });
+    const fechado = botao.getAttribute('aria-controls');
+    if (fechado !== null) expect(document.getElementById(fechado)).not.toBeNull();
+
+    await userEvent.click(botao);
+    expect(within(captacao).getByRole('button', { name: 'Ver menos' })).toBe(botao);
+    expect(botao).toHaveAttribute('aria-expanded', 'true');
+    const aberto = botao.getAttribute('aria-controls');
+    expect(aberto).not.toBeNull();
+    const lista = document.getElementById(aberto as string);
+    expect(lista).not.toBeNull();
+    expect(within(lista as HTMLElement).getByText('Domínio próprio: Sim')).toBeInTheDocument();
+    expect(within(lista as HTMLElement).getByText('Blog: Sim')).toBeInTheDocument();
+
+    await userEvent.click(botao);
+    expect(within(captacao).getByRole('button', { name: 'Ver tudo' })).toBe(botao);
+    expect(botao).toHaveAttribute('aria-expanded', 'false');
+    expect(within(captacao).queryByText('Domínio próprio: Sim')).not.toBeInTheDocument();
+    const deNovo = botao.getAttribute('aria-controls');
+    if (deNovo !== null) expect(document.getElementById(deNovo)).not.toBeNull();
+  });
 });

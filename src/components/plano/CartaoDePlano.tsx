@@ -123,11 +123,12 @@ export default function CartaoDePlano({
           <button
             type="button"
             aria-expanded={verTudo}
-            aria-controls={restoId}
+            // TASK-FIX-F5-05: a lista só existe aberta; fechado, sem aria-controls (padrão da WAI).
+            aria-controls={verTudo ? restoId : undefined}
             onClick={() => setVerTudo((v) => !v)}
             className="mt-2 self-start min-h-[44px] text-sm font-semibold text-brand-blue underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
           >
-            Ver tudo
+            {verTudo ? 'Ver menos' : 'Ver tudo'}
           </button>
         </>
       )}

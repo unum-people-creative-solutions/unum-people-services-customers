@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, ExternalLink } from 'lucide-react';
 import AppHeader from '@/components/AppHeader';
 import CartaoDePlano, { type BotaoDoCartao } from '@/components/plano/CartaoDePlano';
+import ConfirmarPlano from '@/components/plano/ConfirmarPlano';
 import { useCobranca } from '@/contexts/CobrancaContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useTelaLarga } from '@/hooks/useTelaLarga';
@@ -65,7 +66,7 @@ export default function MudarDePlanoPage() {
   const { resumo, carregando, erro: erroDoResumo, recarregar } = useCobranca();
   const telaLarga = useTelaLarga();
   const [leitura, setLeitura] = useState<Leitura>({ status: 'carregando' });
-  const [, setEscolhido] = useState<PlanoParaTroca | null>(null);
+  const [escolhido, setEscolhido] = useState<PlanoParaTroca | null>(null);
   // Só a leitura mais recente mexe no estado: a resposta atrasada de outra empresa é descartada.
   const requisicaoRef = useRef(0);
 
@@ -205,6 +206,16 @@ export default function MudarDePlanoPage() {
                     ))}
                   </div>
                 ) : null}
+
+                {escolhido && atual && (
+                  <ConfirmarPlano
+                    tenantId={activeTenantId}
+                    atual={atual}
+                    novo={escolhido}
+                    planoDoCliente={planoEFaturas.plano}
+                    aoFechar={() => setEscolhido(null)}
+                  />
+                )}
 
                 <div className="mt-8 space-y-2 text-sm text-gray-700">
                   {anual ? (

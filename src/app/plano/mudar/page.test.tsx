@@ -99,6 +99,18 @@ describe('/plano/mudar (T82)', () => {
     expect(screen.getByRole('link', { name: 'atendimento@unumpeople.com.br' })).toHaveAttribute('href', EMAIL);
   });
 
+  it('"Escolher o Captação" abre a confirmação; "Cancelar" fecha sem trocar (T83)', async () => {
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'Escolher o Captação' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Mudar para o plano Captação?' });
+    expect(
+      within(dialogo).getByText('R$ 69,90 por mês a partir do vencimento de 05/12/2026. Até lá, nada muda na sua fatura.'),
+    ).toBeInTheDocument();
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(planos.mudar).not.toHaveBeenCalled();
+  });
+
   it('nenhum cartão nem botão de downgrade, mesmo que a API mande um', async () => {
     planos.listar.mockResolvedValue([basicoDowngrade, presencaAtual, captacaoUpgrade]);
     await abrir();

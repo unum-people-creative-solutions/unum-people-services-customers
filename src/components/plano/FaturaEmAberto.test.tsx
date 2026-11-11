@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { FaturaDoCliente, ResumoDeCobranca } from '@/types/cobranca';
-import { resumoEmAtraso, resumoEmAtrasoAntesDoParcial, resumoEmDia } from '@/test/cobrancaFixtures';
+import { resumoBloqueadoAntesDoParcial, resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
 
 // spec: cobranca-e-plano-do-cliente RF3-02, T56 ("Fatura em aberto", BP-T §9.3) e a
 // espera do pagamento da F2 (RF2-33) pelo useEsperaDoPagamento.
@@ -80,25 +80,32 @@ describe('FaturaEmAberto (T56)', () => {
   });
 
   // DV-46: a "Fatura em aberto" é a vencida de vencimento mais antigo, a mesma da faixa e de
-  // /me/cobranca (R6: duas vencidas antes do pagamento parcial).
+  // /me/cobranca (R6: duas vencidas antes do pagamento parcial, o par real 31/01 e 28/02 do N2).
   it('duas vencidas: mostra a mais antiga e "Pagar fatura" leva a "Aguardando a confirmação do pagamento"', async () => {
-    cobranca.resumo = resumoEmAtrasoAntesDoParcial;
-    const vencida0510: FaturaDoCliente = {
-      id: 'pay_1',
+    cobranca.resumo = resumoBloqueadoAntesDoParcial;
+    const vencida3101: FaturaDoCliente = {
+      id: 'pay_jan',
       valor: 39.9,
-      vencimento: '2026-10-05',
+      vencimento: '2026-01-31',
       situacao: 'vencida',
-      link: 'https://www.asaas.com/i/abc',
+      link: 'https://www.asaas.com/i/jan',
+    };
+    const vencida2802: FaturaDoCliente = {
+      id: 'pay_fev',
+      valor: 39.9,
+      vencimento: '2026-02-28',
+      situacao: 'vencida',
+      link: 'https://www.asaas.com/i/fev',
     };
     const aoConfirmar = vi.fn();
     render(
-      <FaturaEmAberto faturas={[vencida, vencida0510]} formaDePagamento="PIX" aoConfirmarPagamento={aoConfirmar} />,
+      <FaturaEmAberto faturas={[vencida2802, vencida3101]} formaDePagamento="PIX" aoConfirmarPagamento={aoConfirmar} />,
     );
-    expect(secao().getByText('R$ 39,90 · venceu em 05/10/2026')).toBeInTheDocument();
-    expect(secao().queryByText(/05\/11\/2026/)).not.toBeInTheDocument();
+    expect(secao().getByText('R$ 39,90 · venceu em 31/01/2026')).toBeInTheDocument();
+    expect(secao().queryByText(/28\/02\/2026/)).not.toBeInTheDocument();
     expect(secao().getByRole('link', { name: 'Pagar fatura (abre em nova aba)' })).toHaveAttribute(
       'href',
-      'https://www.asaas.com/i/abc',
+      'https://www.asaas.com/i/jan',
     );
 
     await clicarEmPagar();

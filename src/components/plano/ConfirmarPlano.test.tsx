@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { TermStatusItem } from '@/services/api';
 import type { PlanoDoCliente } from '@/types/cobranca';
-import type { ErroDaTroca } from '@/types/planos';
+import type { ErroDaTroca, PlanoParaTroca } from '@/types/planos';
 import { planoEFaturasDaPadaria } from '@/test/cobrancaFixtures';
 import { captacaoUpgrade, presencaAtual } from '@/test/planosFixtures';
 
@@ -27,8 +27,8 @@ const cartao: PlanoDoCliente = { ...pix, forma_de_pagamento: 'CREDIT_CARD' };
 
 const TEXTO_GENERICO = 'Não foi possível trocar o plano agora. Nada foi alterado. Tente de novo em alguns minutos.';
 
-function abrir(plano: PlanoDoCliente = pix, aoFechar = vi.fn()) {
-  render(<ConfirmarPlano tenantId={ID} atual={presencaAtual} novo={captacaoUpgrade} planoDoCliente={plano} aoFechar={aoFechar} />);
+function abrir(plano: PlanoDoCliente = pix, aoFechar = vi.fn(), novo: PlanoParaTroca = captacaoUpgrade) {
+  render(<ConfirmarPlano tenantId={ID} atual={presencaAtual} novo={novo} planoDoCliente={plano} aoFechar={aoFechar} />);
   return screen.getByRole('dialog', { name: 'Mudar para o plano Captação?' });
 }
 
@@ -107,7 +107,9 @@ describe('ConfirmarPlano (T83)', () => {
     });
   });
 
-  const textosDo409: [ErroDaTroca, string][] = [
+  // TASK-FIX-F5-03: dominio_ligado só existe para plano destino sem domínio próprio.
+  const semDominio: PlanoParaTroca = { ...captacaoUpgrade, sem_dominio_proprio: true };
+  const textosDo409: [ErroDaTroca, string, PlanoParaTroca?][] = [
     ['conta_nao_ativa', 'Pague a fatura em atraso para mudar de plano.'],
     [
       'contrato_anual',
@@ -116,6 +118,7 @@ describe('ConfirmarPlano (T83)', () => {
     [
       'dominio_ligado',
       'Este plano não tem domínio próprio, e sua conta tem um domínio ligado. Remova o domínio em Páginas para escolher este plano.',
+      semDominio,
     ],
     [
       'paginas_acima_do_limite',
@@ -129,9 +132,9 @@ describe('ConfirmarPlano (T83)', () => {
     ['cancellation_requested', TEXTO_GENERICO],
   ];
 
-  it.each(textosDo409)('409 %s: texto da §11.5 em alerta dentro do diálogo', async (codigo, texto) => {
+  it.each(textosDo409)('409 %s: texto da §11.5 em alerta dentro do diálogo', async (codigo, texto, novo) => {
     planos.mudar.mockResolvedValue({ ok: false, erro: codigo });
-    const dialogo = abrir();
+    const dialogo = abrir(pix, vi.fn(), novo ?? captacaoUpgrade);
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar a troca' }));
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(texto);
     expect(within(dialogo).getByRole('button', { name: 'Confirmar a troca' })).toBeEnabled();

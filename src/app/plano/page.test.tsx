@@ -439,7 +439,11 @@ describe('/plano: sugestão e "Mudar de plano" (T85)', () => {
   });
 
   it('upgrade indisponível não é sugerido', async () => {
-    planosServico.listar.mockResolvedValue([presencaAtual, { ...captacaoUpgrade, indisponivel_por: 'dominio_ligado' }]);
+    // TASK-FIX-F5-03: dominio_ligado só existe para plano destino sem domínio próprio.
+    planosServico.listar.mockResolvedValue([
+      presencaAtual,
+      { ...captacaoUpgrade, sem_dominio_proprio: true, indisponivel_por: 'dominio_ligado' },
+    ]);
     render(<PlanoPage />);
     const secao = await secaoSeuPlano();
     expect(await secao.findByRole('link', { name: 'Mudar de plano' })).toBeInTheDocument();

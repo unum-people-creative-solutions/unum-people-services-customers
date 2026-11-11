@@ -1,12 +1,18 @@
 // Textos da cobrança no Portal (cobranca-e-plano-do-cliente RF2-21–RF2-23, RF2-34).
 // A data AAAA-MM-DD já vem no dia de Brasília: só reordena o texto, sem Date,
 // para não voltar um dia pelo fuso.
-import type { ResumoDeCobranca } from '@/types/cobranca';
+import type { CicloDoPlano, ResumoDeCobranca, SituacaoDaFatura } from '@/types/cobranca';
 import { formatBRL } from '@/lib/cancellationCopy';
 
 export function formatarData(data: string): string {
   const [, mes, dia] = data.split('-');
   return `${dia}/${mes}`;
+}
+
+// DD/MM/AAAA, nas tabelas e em "Plano e faturas" (BP-T §9). Sem Date, pelo mesmo motivo.
+export function formatarDataCompleta(data: string): string {
+  const [ano, mes, dia] = data.split('-');
+  return `${dia}/${mes}/${ano}`;
 }
 
 export function formatarReais(valor: number): string {
@@ -41,4 +47,30 @@ const NOME_DO_STATUS: Record<string, string> = {
 export function nomeDaSituacao(resumo: ResumoDeCobranca, tenantStatus: string): string {
   if (resumo.situacao !== 'outra') return NOME_DA_SITUACAO[resumo.situacao];
   return NOME_DO_STATUS[tenantStatus] ?? 'Fale com a gente';
+}
+
+// Forma de pagamento do contrato (BP-T §9.2). UNDEFINED ou vazio: a pessoa escolhe na fatura.
+const NOME_DA_FORMA: Record<string, string> = {
+  PIX: 'Pix',
+  BOLETO: 'Boleto',
+  CREDIT_CARD: 'Cartão de crédito',
+};
+
+export function nomeDaForma(forma: string): string {
+  return NOME_DA_FORMA[forma] ?? 'Você escolhe ao pagar a fatura';
+}
+
+const NOME_DA_SITUACAO_DA_FATURA: Record<SituacaoDaFatura, string> = {
+  a_vencer: 'A vencer',
+  paga: 'Paga',
+  vencida: 'Vencida',
+  estornada: 'Estornada',
+};
+
+export function nomeDaSituacaoDaFatura(situacao: SituacaoDaFatura): string {
+  return NOME_DA_SITUACAO_DA_FATURA[situacao];
+}
+
+export function valorDoPlano(valor: number, ciclo: CicloDoPlano): string {
+  return `${formatarReais(valor)} ${ciclo === 'anual' ? 'por ano' : 'por mês'}`;
 }

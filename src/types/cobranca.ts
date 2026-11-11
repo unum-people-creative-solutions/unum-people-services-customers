@@ -32,3 +32,41 @@ export interface ResumoDeCobranca {
   ferramentas_bloqueadas: FerramentaBloqueada[];
   pode_gerir: boolean;
 }
+
+// cobranca-e-plano-do-cliente RF3-01: espelho exato do contrato de GET /me/faturas
+// (TECH-DESIGN §4.2).
+
+export type SituacaoDaFatura = 'a_vencer' | 'paga' | 'vencida' | 'estornada';
+
+export type CicloDoPlano = 'mensal' | 'anual';
+
+export interface PlanoDoCliente {
+  slug: string;
+  nome: string;
+  valor: number;
+  ciclo: CicloDoPlano;
+  // Ausente quando o contrato não tem paid_until.
+  proximo_vencimento?: string;
+  // SubscriptionBillingType do contrato, como está (PIX, BOLETO, CREDIT_CARD, UNDEFINED ou vazio).
+  forma_de_pagamento: string;
+  // Lista, nunca null.
+  destaques: string[];
+}
+
+export interface FaturaDoCliente {
+  id: string;
+  valor: number;
+  vencimento: string;
+  situacao: SituacaoDaFatura;
+  pago_em?: string;
+  // Ausentes quando pode_gerir é false.
+  link?: string;
+  nota_fiscal_url?: string;
+}
+
+export interface PlanoEFaturas {
+  plano: PlanoDoCliente;
+  // Vencimento da mais nova para a mais antiga; lista, nunca null.
+  faturas: FaturaDoCliente[];
+  pode_gerir: boolean;
+}

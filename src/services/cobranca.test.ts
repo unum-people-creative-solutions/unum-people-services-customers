@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeAll } from 'vitest';
-import type { ResumoDeCobranca } from '@/types/cobranca';
-import { resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
+import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
+import { planoEFaturasDoContrato, resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
 
 // spec: cobranca-e-plano-do-cliente RF2-30 (GET /me/cobranca da empresa ativa) e RF2-20.
 
@@ -43,5 +43,27 @@ describe('CobrancaService.resumo', () => {
     const falha = new Error('Network Error');
     mockGet.mockRejectedValue(falha);
     await expect(mod.CobrancaService.resumo('tenant-B')).rejects.toBe(falha);
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF3-01/RF3-02, T53 (GET /me/faturas, contrato §4.2).
+describe('FaturasService.planoEFaturas', () => {
+  it('faz GET /me/faturas com o tenant_id pedido e devolve o corpo do §4.2 como veio', async () => {
+    mockGet.mockResolvedValue({ data: planoEFaturasDoContrato });
+    const resultado: PlanoEFaturas = await mod.FaturasService.planoEFaturas('t1');
+    expect(mockGet).toHaveBeenLastCalledWith('/me/faturas?tenant_id=t1');
+    expect(resultado).toEqual(planoEFaturasDoContrato);
+  });
+
+  it('codifica o tenant_id na URL', async () => {
+    mockGet.mockResolvedValue({ data: planoEFaturasDoContrato });
+    await mod.FaturasService.planoEFaturas('a b&c');
+    expect(mockGet).toHaveBeenLastCalledWith('/me/faturas?tenant_id=a%20b%26c');
+  });
+
+  it('erro da API chega a quem chamou (a tela mostra o erro)', async () => {
+    const falha = new Error('Network Error');
+    mockGet.mockRejectedValue(falha);
+    await expect(mod.FaturasService.planoEFaturas('t1')).rejects.toBe(falha);
   });
 });

@@ -1,4 +1,4 @@
-import type { ResumoDeCobranca } from '@/types/cobranca';
+import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 
 // cobranca-e-plano-do-cliente RF2-20: fixtures no formato exato de GET /me/cobranca
 // (TECH-DESIGN §4.1). Conta com atraso desde 2026-11-05 (D+0, D+9, D+10, D+30, D+60).
@@ -86,4 +86,32 @@ export const resumoEmAtrasoDepoisDoParcial: ResumoDeCobranca = {
   fora_do_ar_em: '2026-03-30',
   cancelamento_em: '2026-04-29',
   ferramentas_bloqueadas: [],
+};
+
+// cobranca-e-plano-do-cliente RF3-01: fixtures no formato exato de GET /me/faturas
+// (TECH-DESIGN §4.2).
+
+// O exemplo do §4.2, campo a campo.
+export const planoEFaturasDoContrato: PlanoEFaturas = {
+  plano: {
+    slug: 'presenca',
+    nome: 'Presença',
+    valor: 39.9,
+    ciclo: 'mensal',
+    proximo_vencimento: '2026-12-05',
+    forma_de_pagamento: 'PIX',
+    destaques: ['...'],
+  },
+  faturas: [
+    {
+      id: 'pay_123',
+      valor: 39.9,
+      vencimento: '2026-11-05',
+      situacao: 'paga',
+      pago_em: '2026-11-04',
+      link: 'https://www.asaas.com/i/abc',
+      nota_fiscal_url: 'https://...',
+    },
+  ],
+  pode_gerir: true,
 };

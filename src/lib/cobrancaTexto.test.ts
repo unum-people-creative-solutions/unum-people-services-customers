@@ -1,5 +1,14 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { formatarData, formatarReais, ferramentasCitadas, nomeDaSituacao } from './cobrancaTexto';
+import {
+  formatarData,
+  formatarDataCompleta,
+  formatarReais,
+  ferramentasCitadas,
+  nomeDaForma,
+  nomeDaSituacao,
+  nomeDaSituacaoDaFatura,
+  valorDoPlano,
+} from './cobrancaTexto';
 import type { ResumoDeCobranca, SituacaoDeCobranca } from '@/types/cobranca';
 import { resumoEmAtraso } from '@/test/cobrancaFixtures';
 
@@ -73,5 +82,48 @@ describe('nomeDaSituacao (RF2-34)', () => {
     ['', 'Fale com a gente'],
   ])('outra com tenant.status %s mostra "%s"', (status, nome) => {
     expect(nomeDaSituacao(comSituacao('outra'), status)).toBe(nome);
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF3-02, T53 (BP-T §9.2–§9.4).
+describe('formatarDataCompleta (T53, DV-16)', () => {
+  it('"2026-11-05" vira "05/11/2026" com TZ=UTC e com TZ=America/Sao_Paulo', () => {
+    process.env.TZ = 'UTC';
+    expect(formatarDataCompleta('2026-11-05')).toBe('05/11/2026');
+    expect(formatarDataCompleta('2027-01-01')).toBe('01/01/2027');
+
+    process.env.TZ = 'America/Sao_Paulo';
+    expect(formatarDataCompleta('2026-11-05')).toBe('05/11/2026');
+    expect(formatarDataCompleta('2027-01-01')).toBe('01/01/2027');
+  });
+});
+
+describe('nomeDaForma (T53, BP-T §9.2)', () => {
+  it.each([
+    ['PIX', 'Pix'],
+    ['BOLETO', 'Boleto'],
+    ['CREDIT_CARD', 'Cartão de crédito'],
+    ['UNDEFINED', 'Você escolhe ao pagar a fatura'],
+    ['', 'Você escolhe ao pagar a fatura'],
+  ])('%s mostra "%s"', (forma, nome) => {
+    expect(nomeDaForma(forma)).toBe(nome);
+  });
+});
+
+describe('nomeDaSituacaoDaFatura (T53, BP-T §9.4)', () => {
+  it.each([
+    ['a_vencer', 'A vencer'],
+    ['paga', 'Paga'],
+    ['vencida', 'Vencida'],
+    ['estornada', 'Estornada'],
+  ] as const)('%s mostra "%s"', (situacao, nome) => {
+    expect(nomeDaSituacaoDaFatura(situacao)).toBe(nome);
+  });
+});
+
+describe('valorDoPlano (T53, BP-T §9.2)', () => {
+  it('mensal: "R$ 39,90 por mês"; anual: "R$ 399,00 por ano"', () => {
+    expect(valorDoPlano(39.9, 'mensal')).toBe('R$ 39,90 por mês');
+    expect(valorDoPlano(399, 'anual')).toBe('R$ 399,00 por ano');
   });
 });

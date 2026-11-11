@@ -121,37 +121,40 @@ export default function FaturaEmAberto({
             </p>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            {(semConfirmacao || (aguardando && espera.falhou)) && (
-              <button type="button" onClick={espera.conferirAgora} className={BOTAO_SECUNDARIO}>
-                Conferir agora
-              </button>
-            )}
-            {fatura.link ? (
-              noCartao ? (
-                <a href={fatura.link} target="_blank" rel="noopener noreferrer" className={BOTAO_SECUNDARIO}>
-                  Ver fatura
-                  <NovaAba />
-                </a>
-              ) : (
-                <a
-                  href={fatura.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={vencida ? () => espera.iniciar(fatura.vencimento) : undefined}
-                  className={BOTAO_PRIMARIO}
-                >
-                  Pagar fatura
-                  <NovaAba />
-                </a>
-              )
-            ) : vencida ? (
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                <Lock size={14} aria-hidden="true" className="shrink-0" />
-                Avise o responsável pela conta
-              </p>
-            ) : null}
-          </div>
+          {/* A vencer sem link: nenhuma ação, nenhuma linha vazia. */}
+          {(fatura.link || vencida) && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              {(semConfirmacao || (aguardando && espera.falhou)) && (
+                <button type="button" onClick={espera.conferirAgora} className={BOTAO_SECUNDARIO}>
+                  Conferir agora
+                </button>
+              )}
+              {fatura.link ? (
+                noCartao ? (
+                  <a href={fatura.link} target="_blank" rel="noopener noreferrer" className={BOTAO_SECUNDARIO}>
+                    Ver fatura
+                    <NovaAba />
+                  </a>
+                ) : (
+                  <a
+                    href={fatura.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={vencida ? () => espera.iniciar(fatura.vencimento) : undefined}
+                    className={BOTAO_PRIMARIO}
+                  >
+                    Pagar fatura
+                    <NovaAba />
+                  </a>
+                )
+              ) : vencida ? (
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                  <Lock size={14} aria-hidden="true" className="shrink-0" />
+                  Avise o responsável pela conta
+                </p>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
     </section>

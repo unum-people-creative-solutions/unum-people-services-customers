@@ -31,7 +31,25 @@ export interface ResumoDeCobranca {
   // Lista, nunca null.
   ferramentas_bloqueadas: FerramentaBloqueada[];
   pode_gerir: boolean;
+  // Fase 4 (RF4-04): só em fora_do_ar. `link` preenchido quando há cobrança de
+  // reativação pendente e pode_gerir; senão null.
+  reativacao?: ReativacaoDoResumo;
 }
+
+export interface ReativacaoDoResumo {
+  valor: number;
+  link: string | null;
+}
+
+// cobranca-e-plano-do-cliente RF4-01: resposta 200 de POST /me/reativacao (TECH-DESIGN §4.3).
+export interface RespostaDaReativacao {
+  valor: number;
+  vencimento: string;
+  link: string;
+}
+
+// 409 de POST /me/reativacao: nao_pausada_por_cobranca e cancellation_requested.
+export type RecusaDaReativacao = { tipo: 'nao_pausada' } | { tipo: 'cancelamento_pedido' };
 
 // cobranca-e-plano-do-cliente RF3-01: espelho exato do contrato de GET /me/faturas
 // (TECH-DESIGN §4.2).

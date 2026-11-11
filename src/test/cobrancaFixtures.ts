@@ -1,4 +1,4 @@
-import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
+import type { PlanoEFaturas, RespostaDaReativacao, ResumoDeCobranca } from '@/types/cobranca';
 
 // cobranca-e-plano-do-cliente RF2-20: fixtures no formato exato de GET /me/cobranca
 // (TECH-DESIGN §4.1). Conta com atraso desde 2026-11-05 (D+0, D+9, D+10, D+30, D+60).
@@ -34,11 +34,33 @@ export const resumoBloqueado: ResumoDeCobranca = {
   ferramentas_bloqueadas: ['crm', 'blog', 'lp'],
 };
 
+// Fase 4 (RF4-04): em fora_do_ar a API manda `reativacao`; `link` null sem cobrança
+// de reativação pendente.
 export const resumoForaDoAr: ResumoDeCobranca = {
   ...resumoEmAtraso,
   situacao: 'fora_do_ar',
   fatura: null,
   ferramentas_bloqueadas: ['crm', 'blog', 'lp'],
+  reativacao: { valor: 39.9, link: null },
+};
+
+// Cobrança de reativação já gerada e pendente, vista por quem gere o contrato.
+export const resumoForaDoArComReativacaoPendente: ResumoDeCobranca = {
+  ...resumoForaDoAr,
+  reativacao: { valor: 39.9, link: 'https://www.asaas.com/i/reativ1' },
+};
+
+// Quem não gere o contrato: link sempre null.
+export const resumoForaDoArSemGerir: ResumoDeCobranca = {
+  ...resumoForaDoAr,
+  pode_gerir: false,
+};
+
+// cobranca-e-plano-do-cliente RF4-01: resposta 200 de POST /me/reativacao (TECH-DESIGN §4.3).
+export const respostaDaReativacao: RespostaDaReativacao = {
+  valor: 39.9,
+  vencimento: '2026-12-08',
+  link: 'https://www.asaas.com/i/reativ1',
 };
 
 // RF2-32a: conta INADIMPLENTE sem `DelinquencySince` (antiga ou alterada à mão). Corpo literal

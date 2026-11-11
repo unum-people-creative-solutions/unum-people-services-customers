@@ -1,15 +1,24 @@
 import { vi, describe, it, expect, beforeAll } from 'vitest';
 import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
-import { planoEFaturasDoContrato, resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
+import {
+  planoEFaturasDoContrato,
+  respostaDaReativacao,
+  resumoEmAtraso,
+  resumoEmDia,
+  resumoForaDoAr,
+  resumoForaDoArComReativacaoPendente,
+} from '@/test/cobrancaFixtures';
 
 // spec: cobranca-e-plano-do-cliente RF2-30 (GET /me/cobranca da empresa ativa) e RF2-20.
 
 const mockGet = vi.hoisted(() => vi.fn());
+const mockPost = vi.hoisted(() => vi.fn());
 
 vi.mock('axios', () => ({
   default: {
     create: vi.fn(() => ({
       get: mockGet,
+      post: mockPost,
       interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } },
     })),
   },
@@ -65,5 +74,58 @@ describe('FaturasService.planoEFaturas', () => {
     const falha = new Error('Network Error');
     mockGet.mockRejectedValue(falha);
     await expect(mod.FaturasService.planoEFaturas('t1')).rejects.toBe(falha);
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF4-04, T71 (campo reativacao do resumo, §4.1).
+describe('CobrancaService.resumo em fora_do_ar (fase 4)', () => {
+  it('devolve o campo reativacao como veio, com link null ou com o link da cobrança pendente', async () => {
+    mockGet.mockResolvedValueOnce({ data: resumoForaDoAr });
+    const semCobranca: ResumoDeCobranca = await mod.CobrancaService.resumo('t1');
+    expect(semCobranca.reativacao).toEqual({ valor: 39.9, link: null });
+
+    mockGet.mockResolvedValueOnce({ data: resumoForaDoArComReativacaoPendente });
+    const comCobranca = await mod.CobrancaService.resumo('t1');
+    expect(comCobranca.reativacao).toEqual({ valor: 39.9, link: 'https://www.asaas.com/i/reativ1' });
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente RF4-01, T71 (POST /me/reativacao, §4.3).
+describe('ReativacaoService.pedir', () => {
+  it('faz POST /me/reativacao com o tenant_id na query, sem corpo, e devolve { valor, vencimento, link }', async () => {
+    mockPost.mockResolvedValue({ data: respostaDaReativacao });
+    const resultado = await mod.ReativacaoService.pedir('t1');
+    expect(mockPost).toHaveBeenCalledTimes(1);
+    expect(mockPost).toHaveBeenCalledWith('/me/reativacao?tenant_id=t1');
+    expect(resultado).toEqual({ valor: 39.9, vencimento: '2026-12-08', link: 'https://www.asaas.com/i/reativ1' });
+  });
+
+  it('codifica o tenant_id na URL', async () => {
+    mockPost.mockResolvedValue({ data: respostaDaReativacao });
+    await mod.ReativacaoService.pedir('a b&c');
+    expect(mockPost).toHaveBeenLastCalledWith('/me/reativacao?tenant_id=a%20b%26c');
+  });
+
+  it('409 nao_pausada_por_cobranca vira { tipo: "nao_pausada" }', async () => {
+    mockPost.mockRejectedValue({ response: { status: 409, data: { error: 'nao_pausada_por_cobranca' } } });
+    await expect(mod.ReativacaoService.pedir('t1')).resolves.toEqual({ tipo: 'nao_pausada' });
+  });
+
+  it('409 cancellation_requested vira { tipo: "cancelamento_pedido" }', async () => {
+    mockPost.mockRejectedValue({ response: { status: 409, data: { error: 'cancellation_requested' } } });
+    await expect(mod.ReativacaoService.pedir('t1')).resolves.toEqual({ tipo: 'cancelamento_pedido' });
+  });
+
+  it('outros erros são lançados para a tela: 502, 500, 403 e 409 com outro código', async () => {
+    for (const falha of [
+      { response: { status: 502, data: { error: 'asaas_unavailable' } } },
+      { response: { status: 500, data: { error: 'internal_error' } } },
+      { response: { status: 403, data: { error: 'forbidden', permissao: 'portal.contrato.cancelar' } } },
+      { response: { status: 409, data: { error: 'outro' } } },
+      new Error('Network Error'),
+    ]) {
+      mockPost.mockRejectedValueOnce(falha);
+      await expect(mod.ReativacaoService.pedir('t1')).rejects.toBe(falha);
+    }
   });
 });

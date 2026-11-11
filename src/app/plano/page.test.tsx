@@ -617,6 +617,8 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
     expect(botao).toBeDisabled();
     expect(botao).toHaveAccessibleDescription(EM_ATRASO);
     expect(secao.getByText(EM_ATRASO)).toBeInTheDocument();
+    // TASK-FIX-F6-P02 (L-F1): com a troca de forma bloqueada, "Mudar de plano" continua ao lado.
+    expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
   });
 
   it('em dia: sem o motivo do atraso', async () => {
@@ -643,6 +645,8 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
     expect(botao).toHaveAccessibleDescription(CONTA_EM_DIA);
     expect(secao.getByText(CONTA_EM_DIA)).toBeInTheDocument();
     expect(secao.queryByText(EM_ATRASO)).not.toBeInTheDocument();
+    // TASK-FIX-F6-P02 (L-F1): com a troca de forma bloqueada, "Mudar de plano" continua ao lado.
+    expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
   });
 
   it.each([
@@ -658,5 +662,7 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
     expect(botao).toBeDisabled();
     expect(botao).toHaveAccessibleDescription(CONTA_EM_DIA);
     expect(secao.getByText(CONTA_EM_DIA)).toBeInTheDocument();
+    // TASK-FIX-F6-P02 (L-F1): com a troca de forma bloqueada, "Mudar de plano" continua ao lado.
+    expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
   });
 });

@@ -19,7 +19,8 @@ const servico = vi.hoisted(() => ({ planoEFaturas: vi.fn() }));
 vi.mock('@/services/cobranca', () => ({ FaturasService: servico }));
 
 // Fase 5 (T85): /plano também lê GET /me/planos, sem bloquear a página. Fora do bloco do
-// T85 a leitura falha, e a página fica como nas fases 3 e 4 (sem a linha e sem o botão).
+// T85 a leitura falha: sem a linha da sugestão; o link "Mudar de plano" depende só de
+// pode_gerir (TASK-FIX-F5-02).
 const planosServico = vi.hoisted(() => ({
   listar: vi.fn().mockRejectedValue({ response: { status: 500, data: { error: 'internal_error' } } }),
   mudar: vi.fn(),
@@ -343,11 +344,14 @@ describe('/plano: "Seu plano" (T55)', () => {
     expect(secao.getByText('Forma de pagamento: Você escolhe ao pagar a fatura')).toBeInTheDocument();
   });
 
-  it('nenhum botão ou link "Mudar de plano" nem "Trocar forma de pagamento" nesta fase', async () => {
+  // Fase 5 (T85, TASK-FIX-F5-02): para quem gere, "Mudar de plano" é um link, não um botão.
+  // "Trocar forma de pagamento" só chega na fase 6.
+  it('"Mudar de plano" só como link para /plano/mudar; nenhum "Trocar forma de pagamento" nesta fase', async () => {
     render(<PlanoPage />);
-    await secaoSeuPlano();
+    const secao = await secaoSeuPlano();
     expect(screen.queryByRole('button', { name: /Mudar de plano/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Mudar de plano/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Mudar de plano/ })).toHaveLength(1);
+    expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
     expect(screen.queryByRole('button', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Trocar forma de pagamento/ })).not.toBeInTheDocument();
   });
@@ -451,12 +455,14 @@ describe('/plano: sugestão e "Mudar de plano" (T85)', () => {
     expect(secao.queryByText(/^No plano /)).not.toBeInTheDocument();
   });
 
-  it('GET /me/planos com erro: sem a linha, e o resto da página igual', async () => {
+  it('GET /me/planos com erro: sem a linha, e o resto da página igual (com o link)', async () => {
     planosServico.listar.mockRejectedValue(erroDosPlanos);
     render(<PlanoPage />);
     const secao = await secaoSeuPlano();
     await act(async () => {});
     expect(secao.queryByText(/^No plano /)).not.toBeInTheDocument();
+    // TASK-FIX-F5-02 (BP-T §9.2): o link depende só de quem gere; /plano/mudar tem o próprio erro.
+    expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
     expect(secao.getByText('Presença')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Fatura em aberto' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Histórico de faturas' })).toBeInTheDocument();
@@ -468,5 +474,22 @@ describe('/plano: sugestão e "Mudar de plano" (T85)', () => {
     render(<PlanoPage />);
     expect(await screen.findByRole('heading', { name: 'Seu plano' })).toBeInTheDocument();
     expect(screen.getByRole('main')).not.toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('com GET /me/planos ainda carregando: o link "Mudar de plano" já aparece, sem a linha (TASK-FIX-F5-02)', async () => {
+    planosServico.listar.mockReturnValue(new Promise(() => {}));
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    expect(secao.getByRole('link', { name: 'Mudar de plano' })).toHaveAttribute('href', '/plano/mudar');
+    expect(secao.queryByText(/^No plano /)).not.toBeInTheDocument();
+  });
+
+  it('sem pode_gerir e GET /me/planos com erro: sem o link (TASK-FIX-F5-02)', async () => {
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadariaSemGerir);
+    planosServico.listar.mockRejectedValue(erroDosPlanos);
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    await act(async () => {});
+    expect(secao.queryByRole('link', { name: 'Mudar de plano' })).not.toBeInTheDocument();
   });
 });

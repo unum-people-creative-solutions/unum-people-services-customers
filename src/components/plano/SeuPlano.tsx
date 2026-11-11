@@ -32,8 +32,8 @@ export default function SeuPlano({
   planos?: PlanoParaTroca[] | null;
 }) {
   const tituloId = useId();
-  const mostraTroca = podeGerir && planos !== null;
-  const sugestao = mostraTroca ? sugestaoDos(planos) : null;
+  // TASK-FIX-F5-02 (§9.2): o link depende só de quem gere; a sugestão depende da leitura.
+  const sugestao = podeGerir && planos !== null ? sugestaoDos(planos) : null;
   return (
     <section aria-labelledby={tituloId} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
       <h3 id={tituloId} className="text-xl font-black text-gray-900">
@@ -58,7 +58,7 @@ export default function SeuPlano({
         </ul>
       )}
       {sugestao && <p className="mt-4 text-sm text-gray-800">{sugestao}</p>}
-      {mostraTroca && (
+      {podeGerir && (
         <div className="mt-4 flex flex-wrap gap-3">
           <a
             href="/plano/mudar"

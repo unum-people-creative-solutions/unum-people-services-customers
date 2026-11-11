@@ -508,6 +508,7 @@ describe('/plano: sugestão e "Mudar de plano" (T85)', () => {
 // "Trocar forma de pagamento" no bloco "Seu plano" e a D-4 com o resultado gravado (B).
 describe('/plano: "Trocar forma de pagamento" (T95)', () => {
   const EM_ATRASO = 'Pague a fatura em atraso antes de trocar a forma de pagamento.';
+  const CONTA_EM_DIA = 'A forma de pagamento só pode ser trocada com a conta em dia.';
   const comBoleto: PlanoEFaturas = {
     ...planoEFaturasDaPadaria,
     plano: { ...planoEFaturasDaPadaria.plano, forma_de_pagamento: 'BOLETO' },
@@ -527,6 +528,8 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     cobranca.resumo = null;
+    cobranca.carregando = false;
+    cobranca.erro = false;
   });
 
   async function secaoSeuPlano() {
@@ -613,5 +616,38 @@ describe('/plano: "Trocar forma de pagamento" (T95)', () => {
     render(<PlanoPage />);
     const secao = await secaoSeuPlano();
     expect(secao.queryByText(EM_ATRASO)).not.toBeInTheDocument();
+    expect(secao.queryByText(CONTA_EM_DIA)).not.toBeInTheDocument();
+  });
+
+  // TASK-FIX-F6-P01 (RF6-03, Verifier F6 L3): fora de em_dia e do atraso, a API recusa a troca
+  // (409 conta_nao_ativa); o botão não fica ativo para receber "Tente de novo".
+  it.each([
+    ['pausada', { ...resumoEmDia, situacao: 'pausada' }],
+    ['cancelada', { ...resumoEmDia, situacao: 'cancelada' }],
+    ['outra', { ...resumoEmDia, situacao: 'outra' }],
+  ] as const)('%s: botão desabilitado com "só com a conta em dia" como descrição acessível', async (_s, resumo) => {
+    cobranca.resumo = resumo;
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    const botao = secao.getByRole('button', { name: 'Trocar forma de pagamento' });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAccessibleDescription(CONTA_EM_DIA);
+    expect(secao.getByText(CONTA_EM_DIA)).toBeInTheDocument();
+    expect(secao.queryByText(EM_ATRASO)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['resumo de /me/cobranca ainda não chegou', { carregando: true, erro: false }],
+    ['resumo de /me/cobranca falhou', { carregando: false, erro: true }],
+  ])('%s: botão desabilitado com "só com a conta em dia"', async (_caso, estadoDoResumo) => {
+    cobranca.resumo = null;
+    cobranca.carregando = estadoDoResumo.carregando;
+    cobranca.erro = estadoDoResumo.erro;
+    render(<PlanoPage />);
+    const secao = await secaoSeuPlano();
+    const botao = secao.getByRole('button', { name: 'Trocar forma de pagamento' });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAccessibleDescription(CONTA_EM_DIA);
+    expect(secao.getByText(CONTA_EM_DIA)).toBeInTheDocument();
   });
 });

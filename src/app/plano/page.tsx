@@ -31,6 +31,16 @@ type Estado =
 // Decisão do executor: fora_do_ar também é atraso por cobrança (as datas do §4.1 vêm nele).
 const SITUACOES_EM_ATRASO: SituacaoDeCobranca[] = ['em_atraso', 'bloqueado', 'fora_do_ar'];
 const TROCA_EM_ATRASO = 'Pague a fatura em atraso antes de trocar a forma de pagamento.';
+// RF6-03 (TASK-FIX-F6-P01): pausada, cancelada, outra ou sem resumo (lendo ou falhou) também
+// recebem o 409; o botão não fica ativo para ouvir "Tente de novo".
+const TROCA_SO_EM_DIA = 'A forma de pagamento só pode ser trocada com a conta em dia.';
+
+function motivoDaTrocaBloqueada(resumo: { situacao: SituacaoDeCobranca } | null): string | null {
+  if (resumo === null) return TROCA_SO_EM_DIA;
+  if (resumo.situacao === 'em_dia') return null;
+  if (SITUACOES_EM_ATRASO.includes(resumo.situacao)) return RESULTADO_D4 === 'B' ? TROCA_EM_ATRASO : null;
+  return TROCA_SO_EM_DIA;
+}
 
 function BlocoCarregando() {
   return (
@@ -127,8 +137,7 @@ export default function PlanoPage() {
     [activeTenantId, ler],
   );
 
-  const trocaDeFormaBloqueadaPor =
-    RESULTADO_D4 === 'B' && resumo !== null && SITUACOES_EM_ATRASO.includes(resumo.situacao) ? TROCA_EM_ATRASO : null;
+  const trocaDeFormaBloqueadaPor = motivoDaTrocaBloqueada(resumo);
 
   const tentarDeNovo = () => {
     setEstado({ status: 'carregando' });

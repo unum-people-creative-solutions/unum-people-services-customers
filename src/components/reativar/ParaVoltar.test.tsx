@@ -158,6 +158,30 @@ describe('/reativar: gerar a fatura de reativação (T74)', () => {
     expect(screen.queryByRole('button', { name: GERAR })).not.toBeInTheDocument();
   });
 
+  // R2-3 da validation-f7-r2: a linha "foi gerada" (L5) é só da conta sem fatura; em fora_do_ar
+  // a linha da F4 com a data do cancelamento continua depois de gerar.
+  it('fora_do_ar depois de gerar: continua "Sua página está fora do ar… cancelada em 04/01.", sem "foi gerada"', async () => {
+    reativacao.pedir.mockResolvedValue(respostaDaReativacao);
+    await montar(resumoForaDoAr);
+    await act(async () => {
+      fireEvent.click(cartao().getByRole('button', { name: GERAR }));
+    });
+    expect(cartao().getByRole('link', { name: /Pagar fatura/ })).toBeInTheDocument();
+    expect(
+      screen.getByText('Sua página está fora do ar por falta de pagamento. A conta será cancelada em 04/01.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/foi gerada/)).not.toBeInTheDocument();
+  });
+
+  it('fora_do_ar com a fatura de reativação pendente: continua "Sua página está fora do ar… cancelada em 04/01.", sem "foi gerada"', async () => {
+    await montar(resumoForaDoArComReativacaoPendente);
+    expect(cartao().getByRole('link', { name: /Pagar fatura/ })).toBeInTheDocument();
+    expect(
+      screen.getByText('Sua página está fora do ar por falta de pagamento. A conta será cancelada em 04/01.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/foi gerada/)).not.toBeInTheDocument();
+  });
+
   it('409 nao_pausada: alerta com o texto de "não pode ser reativada por aqui"', async () => {
     reativacao.pedir.mockResolvedValue({ tipo: 'nao_pausada' });
     await montar(resumoForaDoAr);

@@ -63,6 +63,24 @@ export const respostaDaReativacao: RespostaDaReativacao = {
   link: 'https://www.asaas.com/i/reativ1',
 };
 
+// Fase 7 (spec-f7 RF7-05, T102): conta em atraso sem fatura para pagar. Corpos literais que a
+// API afirma byte a byte (T98).
+export const resumoEmAtrasoSemFaturaComReativacao: ResumoDeCobranca = JSON.parse(
+  '{"situacao":"em_atraso","fatura":null,"vencida_em":"2026-11-05","pagar_ate":"2026-11-14","bloqueio_em":"2026-11-15","fora_do_ar_em":"2026-12-05","cancelamento_em":"2027-01-04","ferramentas_bloqueadas":[],"pode_gerir":true,"reativacao":{"valor":39.9,"link":null}}',
+);
+
+export const resumoBloqueadoSemFaturaComReativacaoPendente: ResumoDeCobranca = JSON.parse(
+  '{"situacao":"bloqueado","fatura":null,"vencida_em":"2026-11-05","pagar_ate":"2026-11-14","bloqueio_em":"2026-11-15","fora_do_ar_em":"2026-12-05","cancelamento_em":"2027-01-04","ferramentas_bloqueadas":["crm","blog","lp"],"pode_gerir":true,"reativacao":{"valor":39.9,"link":"https://www.asaas.com/i/reativ1"}}',
+);
+
+export const resumoBloqueadoSemFaturaComReativacao: ResumoDeCobranca = JSON.parse(
+  '{"situacao":"bloqueado","fatura":null,"vencida_em":"2026-11-05","pagar_ate":"2026-11-14","bloqueio_em":"2026-11-15","fora_do_ar_em":"2026-12-05","cancelamento_em":"2027-01-04","ferramentas_bloqueadas":["crm","blog","lp"],"pode_gerir":true,"reativacao":{"valor":39.9,"link":null}}',
+);
+
+export const resumoBloqueadoSemFaturaComReativacaoSemGerir: ResumoDeCobranca = JSON.parse(
+  '{"situacao":"bloqueado","fatura":null,"vencida_em":"2026-11-05","pagar_ate":"2026-11-14","bloqueio_em":"2026-11-15","fora_do_ar_em":"2026-12-05","cancelamento_em":"2027-01-04","ferramentas_bloqueadas":["crm","blog","lp"],"pode_gerir":false,"reativacao":{"valor":39.9,"link":null}}',
+);
+
 // RF2-32a: conta INADIMPLENTE sem `DelinquencySince` (antiga ou alterada à mão). Corpo literal
 // que a API produz (cobranca_service_test.go, "INADIMPLENTE sem DelinquencySince → em_atraso sem datas").
 export const resumoEmAtrasoSemDatas: ResumoDeCobranca = JSON.parse(

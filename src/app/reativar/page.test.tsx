@@ -4,7 +4,12 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
 import {
   planoEFaturasDaPadaria,
+  planoEFaturasDaPadariaEmAtraso,
+  planoEFaturasDaPadariaEmAtrasoSemGerir,
+  resumoBloqueadoSemFaturaComReativacao,
+  resumoBloqueadoSemFaturaComReativacaoSemGerir,
   resumoEmAtraso,
+  resumoEmAtrasoSemFaturaComReativacao,
   resumoEmDia,
   resumoForaDoAr,
   resumoForaDoArSemGerir,
@@ -219,5 +224,104 @@ describe('/reativar: situação e textos (T73)', () => {
     });
     expect(screen.getByText('Uma mensalidade do plano Captação.')).toBeInTheDocument();
     expect(screen.queryByText('Uma mensalidade do plano Presença.')).not.toBeInTheDocument();
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente spec-f7 RF7-08, T103 (fase 7: /reativar aceita em_atraso e
+// bloqueado sem fatura quando o resumo traz `reativacao`; textos do T19 e do DV-53).
+describe('/reativar: conta em atraso sem fatura para pagar (T103)', () => {
+  const SITUACAO_SEM_FATURA =
+    'Não encontramos uma fatura em aberto desta conta. Gere a fatura de R$ 39,90 para pagar e liberar o acesso.';
+  const CICLO_MENSAL = 'Um novo ciclo começa no dia do pagamento. A próxima fatura vence em um mês.';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    tenant.activeTenantId = ID_DA_PADARIA;
+    tenant.activeTenantName = 'Padaria Zé';
+    tenant.isLoadingTenants = false;
+    cobranca.resumo = resumoEmAtrasoSemFaturaComReativacao;
+    cobranca.carregando = false;
+    cobranca.erro = false;
+    faturas.planoEFaturas.mockResolvedValue(planoEFaturasDaPadariaEmAtraso);
+  });
+
+  it('em_atraso, gere: a linha do T19, o valor sem "A fatura antiga…", o botão, só o ciclo em "Depois de pagar" e sem o aviso do domínio', async () => {
+    await montar();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Reativar minha conta' })).toBeInTheDocument();
+    expect(screen.getByText(SITUACAO_SEM_FATURA)).toBeInTheDocument();
+
+    const cartao = within(screen.getByRole('region', { name: 'Para voltar' }));
+    expect(cartao.getByText('R$ 39,90')).toBeInTheDocument();
+    expect(cartao.getByText('Uma mensalidade do plano Presença.')).toBeInTheDocument();
+    expect(screen.queryByText('A fatura antiga não é cobrada.')).not.toBeInTheDocument();
+    expect(cartao.getByRole('button', { name: 'Gerar a fatura de reativação' })).toBeEnabled();
+
+    const depois = within(screen.getByRole('region', { name: 'Depois de pagar' }));
+    expect(depois.getAllByRole('listitem').map((item) => item.textContent)).toEqual([CICLO_MENSAL]);
+    expect(screen.queryByText('Sua página volta ao ar.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/voltam a funcionar\./)).not.toBeInTheDocument();
+
+    expect(screen.queryByRole('region', { name: 'Domínio próprio' })).not.toBeInTheDocument();
+    expect(screen.queryByText(AVISO_DO_DOMINIO)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Esta conta não pode ser reativada por aqui/)).not.toBeInTheDocument();
+  });
+
+  it('bloqueado: a mesma situação; "Depois de pagar" com as ferramentas e o ciclo, sem "Sua página volta ao ar."', async () => {
+    cobranca.resumo = resumoBloqueadoSemFaturaComReativacao;
+    await montar();
+
+    expect(screen.getByText(SITUACAO_SEM_FATURA)).toBeInTheDocument();
+    const depois = within(screen.getByRole('region', { name: 'Depois de pagar' }));
+    expect(depois.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Páginas, CRM e blog voltam a funcionar.',
+      CICLO_MENSAL,
+    ]);
+    expect(screen.queryByText('A fatura antiga não é cobrada.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Domínio próprio' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gerar a fatura de reativação' })).toBeEnabled();
+  });
+
+  it('o valor vem de reativacao.valor, não de plano.valor', async () => {
+    cobranca.resumo = { ...resumoEmAtrasoSemFaturaComReativacao, reativacao: { valor: 59.9, link: null } };
+    await montar();
+
+    expect(
+      screen.getByText(
+        'Não encontramos uma fatura em aberto desta conta. Gere a fatura de R$ 59,90 para pagar e liberar o acesso.',
+      ),
+    ).toBeInTheDocument();
+    const cartao = within(screen.getByRole('region', { name: 'Para voltar' }));
+    expect(cartao.getByText('R$ 59,90')).toBeInTheDocument();
+    expect(cartao.queryByText('R$ 39,90')).not.toBeInTheDocument();
+  });
+
+  it('anual: "Uma anuidade do plano Presença." e a próxima fatura "em um ano"', async () => {
+    faturas.planoEFaturas.mockResolvedValue({
+      ...planoEFaturasDaPadariaEmAtraso,
+      plano: { ...planoEFaturasDaPadariaEmAtraso.plano, valor: 399, ciclo: 'anual' },
+    });
+    await montar();
+
+    const cartao = within(screen.getByRole('region', { name: 'Para voltar' }));
+    expect(cartao.getByText('Uma anuidade do plano Presença.')).toBeInTheDocument();
+    const depois = within(screen.getByRole('region', { name: 'Depois de pagar' }));
+    expect(depois.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Um novo ciclo começa no dia do pagamento. A próxima fatura vence em um ano.',
+    ]);
+  });
+
+  it('sem pode_gerir: a situação, o valor e "Avise o responsável pela conta", sem botão', async () => {
+    cobranca.resumo = resumoBloqueadoSemFaturaComReativacaoSemGerir;
+    faturas.planoEFaturas.mockResolvedValue(planoEFaturasDaPadariaEmAtrasoSemGerir);
+    await montar();
+
+    expect(screen.getByText(SITUACAO_SEM_FATURA)).toBeInTheDocument();
+    const cartao = within(screen.getByRole('region', { name: 'Para voltar' }));
+    expect(cartao.getByText('R$ 39,90')).toBeInTheDocument();
+    expect(cartao.getByText('Avise o responsável pela conta')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Gerar a fatura de reativação/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Pagar fatura/ })).not.toBeInTheDocument();
   });
 });

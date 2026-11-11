@@ -83,9 +83,18 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
   const [pedido, setPedido] = useState<Pedido>({ estado: 'parado' });
   // Duplo clique gera uma chamada só (DV-45): o botão desabilita e a trava fica até a resposta.
   const enviandoRef = useRef(false);
-  // A conta estava fora do ar nesta visita: em_dia depois disso é a reativação confirmada.
-  const [viuForaDoAr, setViuForaDoAr] = useState(false);
-  if (resumo?.situacao === 'fora_do_ar' && !viuForaDoAr) setViuForaDoAr(true);
+  // Fase 7 (spec-f7 RF7-08, DV-53): em atraso sem fatura para pagar, com `reativacao` no resumo.
+  // A página continua no ar: sem "Sua página volta ao ar.", sem o aviso do domínio e sem
+  // "A fatura antiga não é cobrada.".
+  const semFatura =
+    (resumo?.situacao === 'em_atraso' || resumo?.situacao === 'bloqueado') &&
+    resumo.fatura === null &&
+    resumo.reativacao !== undefined;
+  // O estado reativável visto nesta visita: em_dia depois dele é a reativação confirmada, e o
+  // texto da confirmação depende de a página ter saído do ar ou não.
+  const reativavel = resumo?.situacao === 'fora_do_ar' ? 'fora_do_ar' : semFatura ? 'sem_fatura' : null;
+  const [viuReativavel, setViuReativavel] = useState<'fora_do_ar' | 'sem_fatura' | null>(null);
+  if (reativavel && reativavel !== viuReativavel) setViuReativavel(reativavel);
   const cartaoId = useId();
   const depoisId = useId();
   const dominioId = useId();
@@ -95,15 +104,20 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
 
   if (!resumo) return null;
 
-  if (resumo.situacao === 'em_dia' && viuForaDoAr && !naoPausada) {
+  if (resumo.situacao === 'em_dia' && viuReativavel && !naoPausada) {
+    const saiuDoAr = viuReativavel === 'fora_do_ar';
     return (
       <div className="bg-green-50 border border-green-200 text-green-800 rounded-2xl p-6 flex items-start gap-3">
         <CheckCircle size={20} aria-hidden="true" className="shrink-0 mt-0.5" />
         <div className="flex-1">
           <div role="status">
-            <p className="font-semibold">Conta reativada. Sua página está no ar de novo.</p>
+            <p className="font-semibold">
+              {saiuDoAr ? 'Conta reativada. Sua página está no ar de novo.' : 'Conta reativada.'}
+            </p>
           </div>
-          <p className="text-sm mt-1">Se você usava um domínio próprio, ligue de novo em Páginas › Domínio próprio.</p>
+          {saiuDoAr && (
+            <p className="text-sm mt-1">Se você usava um domínio próprio, ligue de novo em Páginas › Domínio próprio.</p>
+          )}
           <a href={PAGINAS_URL} className={`${BOTAO_PRIMARIO} mt-4`}>
             Abrir Páginas
           </a>
@@ -123,7 +137,23 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
     );
   }
 
-  if (resumo.situacao !== 'fora_do_ar') {
+  // Validation-f7 L5: no estado sem fatura, o 409 quer dizer que a conta tem fatura para pagar
+  // (assinatura ativa ou fatura vencida no Asaas), qualquer que seja o resumo relido.
+  if (naoPausada && viuReativavel === 'sem_fatura') {
+    return (
+      <Caixa>
+        <p role="alert" className="text-gray-800">
+          Esta conta tem uma fatura para pagar. Veja em{' '}
+          <a href="/plano" className="font-semibold text-brand-blue underline hover:brightness-110">
+            Plano e faturas
+          </a>
+          .
+        </p>
+      </Caixa>
+    );
+  }
+
+  if (resumo.situacao !== 'fora_do_ar' && !semFatura) {
     return (
       <Caixa>
         <p className="text-gray-800">
@@ -177,10 +207,22 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-gray-800">
-        Sua página está fora do ar por falta de pagamento. A conta será cancelada em{' '}
-        {resumo.cancelamento_em ? formatarData(resumo.cancelamento_em) : ''}.
-      </p>
+      {semFatura && (fatura || resumo.reativacao?.link) ? (
+        // Validation-f7 L5: a linha do T19 só vale antes de a fatura de reativação existir.
+        <p className="text-gray-800">
+          A fatura de {formatarReais(fatura?.valor ?? valor)} foi gerada. Pague para liberar o acesso.
+        </p>
+      ) : semFatura ? (
+        <p className="text-gray-800">
+          Não encontramos uma fatura em aberto desta conta. Gere a fatura de {formatarReais(valor)} para pagar e
+          liberar o acesso.
+        </p>
+      ) : (
+        <p className="text-gray-800">
+          Sua página está fora do ar por falta de pagamento. A conta será cancelada em{' '}
+          {resumo.cancelamento_em ? formatarData(resumo.cancelamento_em) : ''}.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <section
@@ -195,7 +237,7 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
           <p className="text-sm text-gray-700 mt-2">
             {anual ? `Uma anuidade do plano ${plano.nome}.` : `Uma mensalidade do plano ${plano.nome}.`}
           </p>
-          <p className="text-sm text-gray-700">A fatura antiga não é cobrada.</p>
+          {!semFatura && <p className="text-sm text-gray-700">A fatura antiga não é cobrada.</p>}
 
           {!resumo.pode_gerir ? (
             <div className="mt-4">
@@ -280,8 +322,10 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
             Depois de pagar
           </h2>
           <ul className="mt-3 list-disc pl-5 space-y-2 text-sm text-gray-800">
-            <li>Sua página volta ao ar.</li>
-            <li>{ferramentasCitadas(resumo.ferramentas_bloqueadas)} voltam a funcionar.</li>
+            {!semFatura && <li>Sua página volta ao ar.</li>}
+            {resumo.situacao !== 'em_atraso' && (
+              <li>{ferramentasCitadas(resumo.ferramentas_bloqueadas)} voltam a funcionar.</li>
+            )}
             <li>
               Um novo ciclo começa no dia do pagamento. A próxima fatura vence em {anual ? 'um ano' : 'um mês'}.
             </li>
@@ -289,21 +333,23 @@ export default function ParaVoltar({ planoEFaturas }: { planoEFaturas: PlanoEFat
         </section>
       </div>
 
-      <section
-        aria-labelledby={dominioId}
-        className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex items-start gap-3"
-      >
-        <AlertTriangle size={20} aria-hidden="true" className="shrink-0 mt-0.5" />
-        <div>
-          <h2 id={dominioId} className="font-bold text-sm">
-            Domínio próprio
-          </h2>
-          <p className="text-sm mt-1">
-            Se você usava um domínio próprio, ele foi desligado quando a página saiu do ar. Depois de reativar, ligue
-            de novo em Páginas › Domínio próprio.
-          </p>
-        </div>
-      </section>
+      {!semFatura && (
+        <section
+          aria-labelledby={dominioId}
+          className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex items-start gap-3"
+        >
+          <AlertTriangle size={20} aria-hidden="true" className="shrink-0 mt-0.5" />
+          <div>
+            <h2 id={dominioId} className="font-bold text-sm">
+              Domínio próprio
+            </h2>
+            <p className="text-sm mt-1">
+              Se você usava um domínio próprio, ele foi desligado quando a página saiu do ar. Depois de reativar, ligue
+              de novo em Páginas › Domínio próprio.
+            </p>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

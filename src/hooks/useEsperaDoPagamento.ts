@@ -53,6 +53,7 @@ export function useEsperaDoPagamento(
   // estado 'parcial'. Reason: a frase "Recebemos o pagamento da fatura de DD/MM" usa
   // o vencimento guardado no clique, que só o hook conhece depois de recarregar a página.
   const [vencimentoPago, setVencimentoPago] = useState<string | null>(null);
+  const [chaveVencida, setChaveVencida] = useState<string | null>(null);
   const falhasRef = useRef(0);
   const ultimaConsultaRef = useRef(0);
   const recarregarRef = useRef(recarregar);
@@ -82,12 +83,18 @@ export function useEsperaDoPagamento(
     if (!salvo) {
       setEstado('parado');
     } else if (Date.now() - salvo.clicado_em >= LIMITE_MS) {
-      apagar(tenantId);
+      // A chave vencida é apagada pelo efeito abaixo, depois do estado aplicado: ler de
+      // novo (efeito repetido) ainda encontra a chave e chega ao mesmo estado.
+      setChaveVencida(tenantId);
       setEstado('sem_confirmacao');
     } else {
       setEstado('aguardando');
     }
   }, [tenantId]);
+
+  useEffect(() => {
+    if (chaveVencida) apagar(chaveVencida);
+  }, [chaveVencida]);
 
   // Consultas por intervalo e o limite de 10 min, só enquanto aguarda.
   useEffect(() => {

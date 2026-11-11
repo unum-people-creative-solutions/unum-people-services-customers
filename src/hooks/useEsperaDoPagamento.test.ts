@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEsperaDoPagamento } from './useEsperaDoPagamento';
@@ -202,6 +203,26 @@ describe('useEsperaDoPagamento (RF2-33)', () => {
     expect(result.current.estado).toBe('aguardando');
     await passar(1);
     expect(result.current.estado).toBe('sem_confirmacao');
+  });
+
+  it('recarregar depois dos 10 min: sem_confirmacao e chave apagada (também com efeitos rodando duas vezes, StrictMode)', () => {
+    sessionStorage.setItem(CHAVE, JSON.stringify({ clicado_em: INICIO - 11 * 60_000, vencimento: '2026-11-05' }));
+    const { result } = renderHook(() => useEsperaDoPagamento(TENANT, resumoEmAtraso, vi.fn().mockResolvedValue(undefined)), {
+      wrapper: StrictMode,
+    });
+    expect(result.current.estado).toBe('sem_confirmacao');
+    expect(sessionStorage.getItem(CHAVE)).toBeNull();
+  });
+
+  it('troca de empresa: a espera vencida de uma não apaga a chave da outra', () => {
+    sessionStorage.setItem(CHAVE, JSON.stringify({ clicado_em: INICIO - 11 * 60_000, vencimento: '2026-11-05' }));
+    sessionStorage.setItem('cobranca-aguardando:tenant-B', JSON.stringify({ clicado_em: INICIO - 60_000, vencimento: '2026-11-05' }));
+    const { result, rerender } = montar(vi.fn().mockResolvedValue(undefined));
+    expect(result.current.estado).toBe('sem_confirmacao');
+
+    rerender({ tenantId: 'tenant-B', resumo: resumoEmAtraso });
+    expect(result.current.estado).toBe('aguardando');
+    expect(sessionStorage.getItem('cobranca-aguardando:tenant-B')).not.toBeNull();
   });
 
   it('a chave é por empresa: a de outra empresa não retoma a espera', () => {

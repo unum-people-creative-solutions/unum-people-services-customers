@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { FaturaDoCliente, ResumoDeCobranca } from '@/types/cobranca';
-import { resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
+import { resumoEmAtraso, resumoEmAtrasoAntesDoParcial, resumoEmDia } from '@/test/cobrancaFixtures';
 
 // spec: cobranca-e-plano-do-cliente RF3-02, T56 ("Fatura em aberto", BP-T §9.3) e a
 // espera do pagamento da F2 (RF2-33) pelo useEsperaDoPagamento.
@@ -77,6 +77,50 @@ describe('FaturaEmAberto (T56)', () => {
     render(<FaturaEmAberto faturas={[aVencer, vencida]} formaDePagamento="PIX" aoConfirmarPagamento={vi.fn()} />);
     expect(secao().getByText('R$ 39,90 · venceu em 05/11/2026')).toBeInTheDocument();
     expect(secao().queryByText(/vence em 05\/12\/2026/)).not.toBeInTheDocument();
+  });
+
+  // DV-46: a "Fatura em aberto" é a vencida de vencimento mais antigo, a mesma da faixa e de
+  // /me/cobranca (R6: duas vencidas antes do pagamento parcial).
+  it('duas vencidas: mostra a mais antiga e "Pagar fatura" leva a "Aguardando a confirmação do pagamento"', async () => {
+    cobranca.resumo = resumoEmAtrasoAntesDoParcial;
+    const vencida0510: FaturaDoCliente = {
+      id: 'pay_1',
+      valor: 39.9,
+      vencimento: '2026-10-05',
+      situacao: 'vencida',
+      link: 'https://www.asaas.com/i/abc',
+    };
+    const aoConfirmar = vi.fn();
+    render(
+      <FaturaEmAberto faturas={[vencida, vencida0510]} formaDePagamento="PIX" aoConfirmarPagamento={aoConfirmar} />,
+    );
+    expect(secao().getByText('R$ 39,90 · venceu em 05/10/2026')).toBeInTheDocument();
+    expect(secao().queryByText(/05\/11\/2026/)).not.toBeInTheDocument();
+    expect(secao().getByRole('link', { name: 'Pagar fatura (abre em nova aba)' })).toHaveAttribute(
+      'href',
+      'https://www.asaas.com/i/abc',
+    );
+
+    await clicarEmPagar();
+    expect(secao().getByRole('status')).toHaveTextContent('Aguardando a confirmação do pagamento');
+    expect(aoConfirmar).not.toHaveBeenCalled();
+  });
+
+  // DV-46: sem vencida, a a_vencer de vencimento mais próximo.
+  it('duas a vencer: mostra a de vencimento mais próximo', () => {
+    const aVencer0501: FaturaDoCliente = {
+      id: 'pay_4',
+      valor: 39.9,
+      vencimento: '2027-01-05',
+      situacao: 'a_vencer',
+      link: 'https://www.asaas.com/i/pay4',
+    };
+    render(<FaturaEmAberto faturas={[aVencer0501, aVencer, paga]} formaDePagamento="PIX" aoConfirmarPagamento={vi.fn()} />);
+    expect(secao().getByText('R$ 39,90 · vence em 05/12/2026')).toBeInTheDocument();
+    expect(secao().getByRole('link', { name: 'Pagar fatura (abre em nova aba)' })).toHaveAttribute(
+      'href',
+      'https://www.asaas.com/i/pay3',
+    );
   });
 
   it('vencida: ao clicar em "Pagar fatura", "Aguardando a confirmação do pagamento"', async () => {

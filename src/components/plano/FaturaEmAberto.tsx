@@ -32,9 +32,19 @@ const BOTAO_PRIMARIO =
 const BOTAO_SECUNDARIO =
   'min-h-[44px] inline-flex items-center justify-center gap-2 border border-gray-300 bg-white rounded-lg text-sm font-bold text-gray-700 px-4 py-2 hover:bg-gray-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue';
 
-// A vencida tem a vez: é a que bloqueia o acesso. Sem ela, a primeira a vencer da lista.
+// DV-46: a vencida de vencimento mais antigo (a mesma da faixa e de /me/cobranca); sem
+// vencida, a a vencer de vencimento mais próximo. Datas `AAAA-MM-DD` se comparam como texto.
+function maisCedo(faturas: FaturaDoCliente[], situacao: SituacaoDaFatura): FaturaDoCliente | undefined {
+  return faturas
+    .filter((f) => f.situacao === situacao)
+    .reduce<FaturaDoCliente | undefined>(
+      (escolhida, f) => (!escolhida || f.vencimento < escolhida.vencimento ? f : escolhida),
+      undefined,
+    );
+}
+
 function faturaEmAberto(faturas: FaturaDoCliente[]): FaturaDoCliente | undefined {
-  return faturas.find((f) => f.situacao === 'vencida') ?? faturas.find((f) => f.situacao === 'a_vencer');
+  return maisCedo(faturas, 'vencida') ?? maisCedo(faturas, 'a_vencer');
 }
 
 function NovaAba() {

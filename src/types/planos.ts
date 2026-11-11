@@ -38,3 +38,7 @@ export type ErroDaTroca =
   | 'cancellation_requested';
 
 export type ResultadoDaTroca = { ok: true } | { ok: false; erro: ErroDaTroca };
+
+// cobranca-e-plano-do-cliente RF6-01: as formas aceitas por POST /me/forma-de-pagamento
+// (TECH-DESIGN §4.3), exatamente como a API espera.
+export type FormaDePagamento = 'PIX' | 'BOLETO' | 'CREDIT_CARD';

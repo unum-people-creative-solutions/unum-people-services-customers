@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import AppHeader from '@/components/AppHeader';
 import FaturaEmAberto from '@/components/plano/FaturaEmAberto';
+import HistoricoDeFaturas from '@/components/plano/HistoricoDeFaturas';
 import SeuPlano from '@/components/plano/SeuPlano';
 import { useTenant } from '@/contexts/TenantContext';
 import { ehRecusaPorPermissao } from '@/services/api';
@@ -125,6 +126,13 @@ export default function PlanoPage() {
               formaDePagamento={estado.dados.plano.forma_de_pagamento}
               aoConfirmarPagamento={relerAposPagamento}
             />
+            <div className="md:col-span-2">
+              <HistoricoDeFaturas
+                faturas={estado.dados.faturas}
+                podeGerir={estado.dados.pode_gerir}
+                nomeDaEmpresa={nomeDaEmpresa}
+              />
+            </div>
           </div>
         )}
       </main>

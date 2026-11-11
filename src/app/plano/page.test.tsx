@@ -2,7 +2,12 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { PlanoEFaturas, ResumoDeCobranca } from '@/types/cobranca';
-import { planoEFaturasDaPadaria, resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
+import {
+  planoEFaturasDaPadaria,
+  planoEFaturasDaPadariaSemGerir,
+  resumoEmAtraso,
+  resumoEmDia,
+} from '@/test/cobrancaFixtures';
 import { simularTela } from '@/test/telaLarga';
 
 // spec: cobranca-e-plano-do-cliente RF3-02, T54 (estrutura e estados, BP-T §9.1 e §9.5)
@@ -58,6 +63,7 @@ describe('/plano: estrutura e estados (T54)', () => {
     expect(screen.getByRole('heading', { name: 'Plano e faturas' })).toBeInTheDocument();
     expect(screen.getByText('O plano da Padaria Zé, a próxima fatura e o histórico.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Fatura em aberto' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Histórico de faturas' })).toBeInTheDocument();
     expect(servico.planoEFaturas).toHaveBeenCalledWith(ID_DA_PADARIA);
     expect(screen.getByRole('main')).not.toHaveAttribute('aria-busy', 'true');
   });
@@ -185,6 +191,43 @@ describe('/plano: "Fatura em aberto" (T56)', () => {
     });
     expect(servico.planoEFaturas).toHaveBeenCalledTimes(2);
     expect(await screen.findByText('Nenhuma fatura em aberto.')).toBeInTheDocument();
+  });
+});
+
+describe('/plano: histórico (T57, BP-T §15.1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    tenant.activeTenantId = ID_DA_PADARIA;
+    tenant.activeTenantName = 'Padaria Zé';
+    tenant.isLoadingTenants = false;
+    cobranca.resumo = resumoEmDia;
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadaria);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('tela larga: tabela das faturas da empresa ativa com "Nota fiscal de 05/11/2026"', async () => {
+    simularTela(true);
+    render(<PlanoPage />);
+    expect(await screen.findByRole('table', { name: 'Faturas da Padaria Zé' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Nota fiscal de 05/11/2026 (abre em nova aba)' })).toBeInTheDocument();
+  });
+
+  it('celular: lista de cartões, sem tabela', async () => {
+    simularTela(false);
+    render(<PlanoPage />);
+    expect(await screen.findByRole('list', { name: 'Faturas da Padaria Zé' })).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('sem pode_gerir: nenhum link de fatura ou nota e a frase sobre quem gere', async () => {
+    simularTela(true);
+    servico.planoEFaturas.mockResolvedValue(planoEFaturasDaPadariaSemGerir);
+    render(<PlanoPage />);
+    await screen.findByRole('table', { name: 'Faturas da Padaria Zé' });
+    expect(screen.queryByRole('link', { name: /Ver fatura|Nota fiscal|Pagar fatura/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Os links das faturas e das notas fiscais aparecem só para quem gere o contrato.'),
+    ).toBeInTheDocument();
   });
 });
 

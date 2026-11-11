@@ -48,3 +48,30 @@ export const resumoEmDia: ResumoDeCobranca = {
   ferramentas_bloqueadas: [],
   pode_gerir: true,
 };
+
+// Sem atraso por cobrança (T4): `fatura` null e sem as cinco datas.
+export const resumoPausada: ResumoDeCobranca = { ...resumoEmDia, situacao: 'pausada' };
+export const resumoCancelada: ResumoDeCobranca = { ...resumoEmDia, situacao: 'cancelada' };
+
+// R6 (T11), antes do pagamento parcial: duas faturas vencidas (05/10 e 05/11). A `fatura` é a
+// vencida mais antiga e `DelinquencySince` é o vencimento dela, então as cinco datas partem de 05/10.
+const faturaDe0510 = { valor: 39.9, vencimento: '2026-10-05', link: 'https://www.asaas.com/i/abc' };
+const datasDesde0510 = {
+  vencida_em: '2026-10-05',
+  pagar_ate: '2026-10-14',
+  bloqueio_em: '2026-10-15',
+  fora_do_ar_em: '2026-11-04',
+  cancelamento_em: '2026-12-04',
+};
+
+export const resumoEmAtrasoAntesDoParcial: ResumoDeCobranca = {
+  ...resumoEmAtraso,
+  fatura: faturaDe0510,
+  ...datasDesde0510,
+};
+
+export const resumoBloqueadoAntesDoParcial: ResumoDeCobranca = {
+  ...resumoBloqueado,
+  fatura: faturaDe0510,
+  ...datasDesde0510,
+};

@@ -11,6 +11,7 @@ import type { ResumoDeCobranca } from '@/types/cobranca';
 import {
   resumoBloqueado,
   resumoEmAtraso,
+  resumoEmAtrasoAntesDoParcial,
   resumoEmAtrasoSemFatura,
   resumoEmAtrasoSemGerir,
   resumoEmDia,
@@ -345,7 +346,7 @@ describe('FaixaDeCobranca — espera do pagamento (RF2-33)', () => {
   });
 
   it('parcial (R6): outro vencimento em atraso → volta ao estado normal com a linha da fatura paga acima do texto', async () => {
-    await montarCom({ ...resumoEmAtraso, fatura: { valor: 39.9, vencimento: '2026-10-05', link: 'https://www.asaas.com/i/abc' } });
+    await montarCom(resumoEmAtrasoAntesDoParcial);
     await clicarEmPagar();
 
     resumoMock.mockResolvedValue(resumoEmAtraso);

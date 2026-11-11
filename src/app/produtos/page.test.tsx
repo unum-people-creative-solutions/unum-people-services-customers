@@ -6,7 +6,14 @@ import { logoutFromHostedUI } from "@/lib/pkce";
 import { useTenant } from "@/contexts/TenantContext";
 import { useCobranca } from "@/contexts/CobrancaContext";
 import type { ResumoDeCobranca } from "@/types/cobranca";
-import { resumoEmAtraso, resumoEmDia } from "@/test/cobrancaFixtures";
+import {
+  resumoBloqueado,
+  resumoCancelada,
+  resumoEmAtraso,
+  resumoEmDia,
+  resumoForaDoAr,
+  resumoPausada,
+} from "@/test/cobrancaFixtures";
 
 // Mocks
 vi.mock("@/services/api", () => ({
@@ -471,15 +478,17 @@ describe("ProductsPage — Status da Conta (RF2-34)", () => {
     });
   });
 
+  // Cada situação com o corpo que a API manda para ela (TECH-DESIGN T4 e §4.1).
   it.each([
-    ["em_dia", "Em dia"],
-    ["em_atraso", "Fatura em atraso"],
-    ["bloqueado", "Acesso bloqueado"],
-    ["fora_do_ar", "Fora do ar"],
-    ["pausada", "Pausada"],
-    ["cancelada", "Cancelada"],
-  ] as const)("situacao %s mostra \"%s\", não o código cru do status", async (situacao, nome) => {
-    comCobranca({ resumo: { ...resumoEmAtraso, situacao }, carregando: false, erro: false });
+    ["em_dia", "Em dia", resumoEmDia],
+    ["em_atraso", "Fatura em atraso", resumoEmAtraso],
+    ["bloqueado", "Acesso bloqueado", resumoBloqueado],
+    ["fora_do_ar", "Fora do ar", resumoForaDoAr],
+    ["pausada", "Pausada", resumoPausada],
+    ["cancelada", "Cancelada", resumoCancelada],
+  ] as const)("situacao %s mostra \"%s\", não o código cru do status", async (situacao, nome, resumo) => {
+    expect(resumo.situacao).toBe(situacao);
+    comCobranca({ resumo, carregando: false, erro: false });
     await abrirCom("INADIMPLENTE");
     expect(valorDoStatus().textContent).toBe(nome);
     expect(screen.queryByText("INADIMPLENTE")).not.toBeInTheDocument();

@@ -3,7 +3,12 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEsperaDoPagamento } from './useEsperaDoPagamento';
 import type { ResumoDeCobranca } from '@/types/cobranca';
-import { resumoBloqueado, resumoEmAtraso, resumoEmDia } from '@/test/cobrancaFixtures';
+import {
+  resumoBloqueado,
+  resumoBloqueadoAntesDoParcial,
+  resumoEmAtraso,
+  resumoEmDia,
+} from '@/test/cobrancaFixtures';
 
 // spec: cobranca-e-plano-do-cliente RF2-33 (espera do pagamento, BP-T §5), T42 e o bloco
 // de segurança da TASK-FE-P04 (chave do sessionStorage por tenant_id, apagada no fim).
@@ -149,7 +154,7 @@ describe('useEsperaDoPagamento (RF2-33)', () => {
   it('continua em atraso com outro vencimento: parcial, com o vencimento pago, e chave apagada', () => {
     const { result, rerender } = montar(vi.fn().mockResolvedValue(undefined), {
       tenantId: TENANT,
-      resumo: { ...resumoBloqueado, fatura: { valor: 39.9, vencimento: '2026-10-05', link: 'https://www.asaas.com/i/abc' } },
+      resumo: resumoBloqueadoAntesDoParcial,
     });
     act(() => result.current.iniciar('2026-10-05'));
 

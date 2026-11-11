@@ -119,18 +119,20 @@ describe('FaixaDeCobranca (RF2-32)', () => {
     expect(screen.getByRole('link', { name: /Pagar fatura/ })).toHaveAttribute('href', 'https://www.asaas.com/i/abc');
   });
 
-  it('fora_do_ar, gere: texto com cancelamento_em e "Pedir a reativação por e-mail" (mailto com o nome do negócio)', async () => {
-    await montarCom(resumoForaDoAr);
+  // Fase 4 (RF4-05, T72): o "Pedir a reativação por e-mail" da fase 2 vira "Reativar minha conta".
+  it('fora_do_ar, gere: texto com cancelamento_em e "Reativar minha conta" para /reativar na mesma aba', async () => {
+    const { container } = await montarCom(resumoForaDoAr);
 
     const status = within(faixa()).getByRole('status');
     expect(status).toHaveTextContent(
       'Sua página está fora do ar por falta de pagamento. A conta será cancelada em 04/01.',
     );
     expect(status).not.toHaveTextContent(LINHA_DO_BOLETO);
-    expect(screen.getByRole('link', { name: 'Pedir a reativação por e-mail' })).toHaveAttribute(
-      'href',
-      'mailto:atendimento@unumpeople.com.br?subject=' + encodeURIComponent('Reativar minha conta – Padaria Zé'),
-    );
+    const reativar = within(faixa()).getByRole('link', { name: 'Reativar minha conta' });
+    expect(reativar).toHaveAttribute('href', '/reativar');
+    expect(reativar).not.toHaveAttribute('target');
+    expect(screen.queryByRole('link', { name: 'Pedir a reativação por e-mail' })).not.toBeInTheDocument();
+    expect(container.querySelector('a[href^="mailto:"]')).toBeNull();
     expect(screen.queryByRole('link', { name: /Pagar fatura/ })).not.toBeInTheDocument();
   });
 
@@ -154,6 +156,7 @@ describe('FaixaDeCobranca (RF2-32)', () => {
     await montarCom({ ...resumoForaDoAr, pode_gerir: false });
     expect(screen.getByText('Avise o responsável pela conta')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Pedir a reativação por e-mail' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Reativar minha conta' })).not.toBeInTheDocument();
   });
 
   it('fatura: null em em_atraso: sem valor, sem botão, com a linha do e-mail (mailto)', async () => {

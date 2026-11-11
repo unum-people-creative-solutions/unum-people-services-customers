@@ -71,22 +71,20 @@ function LinhaSemLink() {
 
 function Acao({
   resumo,
-  nomeDoNegocio,
   aoPagar,
   pagarComoSecundario,
 }: {
   resumo: ResumoDeCobranca;
-  nomeDoNegocio: string;
   aoPagar: (vencimento: string) => void;
   pagarComoSecundario: boolean;
 }) {
   if (!resumo.pode_gerir) return <AviseOResponsavel />;
 
+  // Fase 4 (RF4-05, BP-T §4.2): a reativação é feita pelo cliente, na tela /reativar.
   if (resumo.situacao === 'fora_do_ar') {
-    const assunto = encodeURIComponent(`Reativar minha conta – ${nomeDoNegocio}`);
     return (
-      <a href={`mailto:${EMAIL_DO_ATENDIMENTO}?subject=${assunto}`} className={BOTAO_PRIMARIO}>
-        Pedir a reativação por e-mail
+      <a href="/reativar" className={BOTAO_PRIMARIO}>
+        Reativar minha conta
       </a>
     );
   }
@@ -113,7 +111,7 @@ function Acao({
 
 export default function FaixaDeCobranca() {
   const { resumo, erro, recarregar } = useCobranca();
-  const { activeTenantId, activeTenantName, availableTenants } = useTenant();
+  const { activeTenantId, availableTenants } = useTenant();
   const espera = useEsperaDoPagamento(activeTenantId, resumo, recarregar);
   // Último resumo em atraso: diz, depois de confirmado, se o acesso estava bloqueado e a quê.
   const ultimoAtrasoRef = useRef<ResumoDeCobranca | null>(null);
@@ -234,7 +232,6 @@ export default function FaixaDeCobranca() {
           )}
           <Acao
             resumo={resumo}
-            nomeDoNegocio={activeTenantName}
             aoPagar={espera.iniciar}
             pagarComoSecundario={emEspera}
           />

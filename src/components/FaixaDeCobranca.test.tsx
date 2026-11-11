@@ -1,7 +1,7 @@
 import React from 'react';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CobrancaProvider } from '@/contexts/CobrancaContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuthStore } from '@/store/authStore';
@@ -255,5 +255,147 @@ describe('FaixaDeCobranca (RF2-32)', () => {
 
     await act(async () => { resolverA(resumoEmDia); });
     expect(screen.queryByRole('region', { name: 'Aviso de cobrança' })).not.toBeInTheDocument();
+  });
+});
+
+// spec: RF2-33 (espera do pagamento na faixa), T42 e BP-T §15.1 "Espera", "Confirmado", "Parcial (R6)".
+describe('FaixaDeCobranca — espera do pagamento (RF2-33)', () => {
+  const CHAVE = 'cobranca-aguardando:3f2b8c1e-9d4a-4e7b-a6c5-1b2d3e4f5a6b';
+  const INICIO = new Date('2026-11-10T15:00:00Z').getTime();
+  const AGUARDANDO = 'Aguardando a confirmação do pagamento';
+  const LINHA_AGUARDANDO = 'Pix e cartão costumam confirmar em poucos minutos. Esta tela atualiza sozinha.';
+  const SEM_CONFIRMACAO =
+    'Ainda não recebemos a confirmação. Pix e cartão confirmam em poucos minutos. Boleto leva até 3 dias úteis. O acesso volta sozinho quando o pagamento for confirmado.';
+  const FALHA_NA_CONSULTA = 'Não foi possível conferir o pagamento agora. Tente de novo em instantes.';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(INICIO);
+    sessionStorage.clear();
+    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      session: { email: 'dono@padariaze.com.br', token: 'token' },
+    });
+    (usePathname as unknown as ReturnType<typeof vi.fn>).mockReturnValue('/produtos');
+    empresa(['site', 'crm', 'blog']);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function passar(ms: number) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  async function clicarEmPagar() {
+    const pagar = screen.getByRole('link', { name: /Pagar fatura/ });
+    // O link abre o Asaas em outra aba; aqui só interessa o que a faixa faz.
+    pagar.addEventListener('click', (e) => e.preventDefault(), { once: true });
+    await act(async () => {
+      fireEvent.click(pagar);
+    });
+  }
+
+  it('depois do clique: "Aguardando a confirmação do pagamento", a linha da espera e "Pagar fatura" ainda visível', async () => {
+    await montarCom(resumoEmAtraso);
+    await clicarEmPagar();
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent(AGUARDANDO);
+    expect(status).toHaveTextContent(LINHA_AGUARDANDO);
+    expect(screen.getByRole('link', { name: /Pagar fatura/ })).toHaveAttribute('href', 'https://www.asaas.com/i/abc');
+    expect(JSON.parse(sessionStorage.getItem(CHAVE)!)).toEqual({ clicado_em: INICIO, vencimento: '2026-11-05' });
+  });
+
+  it('nova consulta aos 15 s; resumo em_dia → "Pagamento confirmado. Obrigado!" (bloqueado: acesso liberado) e "Fechar aviso"', async () => {
+    await montarCom(resumoBloqueado);
+    await clicarEmPagar();
+    expect(resumoMock).toHaveBeenCalledTimes(1);
+
+    resumoMock.mockResolvedValue(resumoEmDia);
+    await passar(15_000);
+    expect(resumoMock).toHaveBeenCalledTimes(2);
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent('Pagamento confirmado. Obrigado!');
+    expect(status).toHaveTextContent('O acesso a Páginas, CRM e blog está liberado.');
+    expect(sessionStorage.getItem(CHAVE)).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar aviso' }));
+    });
+    expect(screen.queryByRole('region', { name: 'Aviso de cobrança' })).not.toBeInTheDocument();
+  });
+
+  it('confirmado vindo de em_atraso: sem a linha do acesso liberado', async () => {
+    await montarCom(resumoEmAtraso);
+    await clicarEmPagar();
+
+    resumoMock.mockResolvedValue(resumoEmDia);
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent('Pagamento confirmado. Obrigado!');
+    expect(status).not.toHaveTextContent('está liberado');
+  });
+
+  it('parcial (R6): outro vencimento em atraso → volta ao estado normal com a linha da fatura paga acima do texto', async () => {
+    await montarCom({ ...resumoEmAtraso, fatura: { valor: 39.9, vencimento: '2026-10-05', link: 'https://www.asaas.com/i/abc' } });
+    await clicarEmPagar();
+
+    resumoMock.mockResolvedValue(resumoEmAtraso);
+    await passar(15_000);
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent(
+      'Recebemos o pagamento da fatura de 05/10. Ainda há outra fatura em atraso.' +
+        'Sua fatura de R$ 39,90 venceu em 05/11.',
+    );
+    expect(status).not.toHaveTextContent(AGUARDANDO);
+  });
+
+  it('10 min sem confirmar: para, mostra "Ainda não recebemos a confirmação…", "Conferir agora" (uma consulta) e "Pagar fatura"', async () => {
+    await montarCom(resumoEmAtraso);
+    await clicarEmPagar();
+
+    await passar(10 * 60_000);
+    expect(within(faixa()).getByRole('status')).toHaveTextContent(SEM_CONFIRMACAO);
+    expect(screen.getByRole('link', { name: /Pagar fatura/ })).toBeInTheDocument();
+    expect(sessionStorage.getItem(CHAVE)).toBeNull();
+
+    const consultas = resumoMock.mock.calls.length;
+    await passar(60_000);
+    expect(resumoMock).toHaveBeenCalledTimes(consultas);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Conferir agora' }));
+    });
+    expect(resumoMock).toHaveBeenCalledTimes(consultas + 1);
+  });
+
+  it('três consultas seguidas com falha: alerta com "Conferir agora"', async () => {
+    await montarCom(resumoEmAtraso);
+    await clicarEmPagar();
+
+    resumoMock.mockRejectedValue(new Error('Network Error'));
+    await passar(30_000);
+    expect(screen.queryByText(FALHA_NA_CONSULTA)).not.toBeInTheDocument();
+
+    await passar(15_000);
+    expect(screen.getByRole('alert')).toHaveTextContent(FALHA_NA_CONSULTA);
+    expect(screen.getByRole('button', { name: 'Conferir agora' })).toBeInTheDocument();
+    // A faixa continua com o estado da espera.
+    expect(within(faixa()).getByRole('status')).toHaveTextContent(AGUARDANDO);
+  });
+
+  it('recarregar a página com a chave guardada retoma "Aguardando…"', async () => {
+    sessionStorage.setItem(CHAVE, JSON.stringify({ clicado_em: INICIO - 60_000, vencimento: '2026-11-05' }));
+    await montarCom(resumoEmAtraso);
+    expect(within(faixa()).getByRole('status')).toHaveTextContent(AGUARDANDO);
   });
 });

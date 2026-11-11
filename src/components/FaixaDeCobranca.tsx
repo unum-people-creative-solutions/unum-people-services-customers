@@ -28,6 +28,12 @@ function textoDoEstado(resumo: ResumoDeCobranca, servicosDoPlano: string[]): str
   switch (resumo.situacao) {
     case 'em_atraso': {
       const ferramentas = ferramentasCitadas(servicosDoPlano);
+      // RF2-32a: conta sem `DelinquencySince` vem sem as datas; nunca frase com data vazia.
+      if (!resumo.pagar_ate || !resumo.vencida_em) {
+        return resumo.fatura
+          ? `Sua fatura de ${formatarReais(resumo.fatura.valor)} está em atraso. Pague para não perder o acesso a ${ferramentas}.`
+          : `Há uma fatura em atraso nesta conta. Pague para não perder o acesso a ${ferramentas}.`;
+      }
       if (resumo.fatura) {
         return `Sua fatura de ${formatarReais(resumo.fatura.valor)} venceu em ${data(resumo.fatura.vencimento)}. Pague até ${data(resumo.pagar_ate)} para não perder o acesso a ${ferramentas}.`;
       }

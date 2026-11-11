@@ -41,6 +41,12 @@ export const resumoForaDoAr: ResumoDeCobranca = {
   ferramentas_bloqueadas: ['crm', 'blog', 'lp'],
 };
 
+// RF2-32a: conta INADIMPLENTE sem `DelinquencySince` (antiga ou alterada à mão). Corpo literal
+// que a API produz (cobranca_service_test.go, "INADIMPLENTE sem DelinquencySince → em_atraso sem datas").
+export const resumoEmAtrasoSemDatas: ResumoDeCobranca = JSON.parse(
+  '{"situacao":"em_atraso","fatura":{"valor":39.9,"vencimento":"2026-11-05","link":"https://www.asaas.com/i/abc"},"ferramentas_bloqueadas":[],"pode_gerir":true}',
+);
+
 // Conta em dia: o corpo exato do §4.1.
 export const resumoEmDia: ResumoDeCobranca = {
   situacao: 'em_dia',

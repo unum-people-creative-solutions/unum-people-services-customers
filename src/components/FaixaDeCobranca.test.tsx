@@ -12,6 +12,7 @@ import {
   resumoBloqueado,
   resumoEmAtraso,
   resumoEmAtrasoAntesDoParcial,
+  resumoEmAtrasoSemDatas,
   resumoEmAtrasoSemFatura,
   resumoEmAtrasoSemGerir,
   resumoEmDia,
@@ -167,6 +168,34 @@ describe('FaixaDeCobranca (RF2-32)', () => {
       'href',
       'mailto:atendimento@unumpeople.com.br',
     );
+  });
+
+  // RF2-32a: em_atraso sem as cinco datas não monta frase com data vazia.
+  it('em_atraso sem datas (corpo literal da API), com fatura: "está em atraso", boleto e "Pagar fatura"', async () => {
+    await montarCom(resumoEmAtrasoSemDatas);
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent(
+      'Sua fatura de R$ 39,90 está em atraso. Pague para não perder o acesso a Páginas, CRM e blog.',
+    );
+    expect(status).not.toHaveTextContent('Pague até');
+    expect(status).not.toHaveTextContent('venceu em');
+    expect(status).toHaveTextContent(LINHA_DO_BOLETO);
+    expect(screen.getByRole('link', { name: /Pagar fatura/ })).toHaveAttribute('href', 'https://www.asaas.com/i/abc');
+  });
+
+  it('em_atraso sem datas e sem fatura: "Há uma fatura em atraso nesta conta.", boleto e a linha do e-mail, sem botão', async () => {
+    await montarCom({ ...resumoEmAtrasoSemDatas, fatura: null });
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent(
+      'Há uma fatura em atraso nesta conta. Pague para não perder o acesso a Páginas, CRM e blog.',
+    );
+    expect(status).not.toHaveTextContent('Pague até');
+    expect(status).not.toHaveTextContent('venceu em');
+    expect(status).toHaveTextContent(LINHA_DO_BOLETO);
+    expect(screen.queryByRole('link', { name: /Pagar fatura/ })).not.toBeInTheDocument();
+    expect(faixa()).toHaveTextContent(LINHA_SEM_LINK);
   });
 
   it('fatura: null em bloqueado: o texto do estado e a linha do e-mail, sem botão', async () => {

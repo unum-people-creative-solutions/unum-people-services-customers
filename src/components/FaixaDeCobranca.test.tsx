@@ -10,7 +10,11 @@ import { usePathname } from 'next/navigation';
 import type { ResumoDeCobranca } from '@/types/cobranca';
 import {
   resumoBloqueado,
+  resumoBloqueadoSemFaturaComReativacao,
+  resumoBloqueadoSemFaturaComReativacaoPendente,
+  resumoBloqueadoSemFaturaComReativacaoSemGerir,
   resumoEmAtraso,
+  resumoEmAtrasoSemFaturaComReativacao,
   resumoBloqueadoAntesDoParcial,
   resumoEmAtrasoDepoisDoParcial,
   RELOGIO_DO_PARCIAL,
@@ -301,6 +305,81 @@ describe('FaixaDeCobranca (RF2-32)', () => {
 
     await act(async () => { resolverA(resumoEmDia); });
     expect(screen.queryByRole('region', { name: 'Aviso de cobrança' })).not.toBeInTheDocument();
+  });
+});
+
+// spec: cobranca-e-plano-do-cliente spec-f7 RF7-07, T102 (fase 7: conta em atraso sem fatura para
+// pagar; "Gerar fatura para pagar" leva a /reativar; DV-54).
+describe('FaixaDeCobranca — sem fatura para pagar (RF7-07, T102)', () => {
+  const GERAR = 'Gerar fatura para pagar';
+  const TEXTO_EM_ATRASO =
+    'Sua fatura venceu em 05/11. Pague até 14/11 para não perder o acesso a Páginas, CRM e blog.';
+  const TEXTO_BLOQUEADO =
+    'Acesso a Páginas, CRM e blog bloqueado por fatura em atraso. Sua página publicada sai do ar em 05/12.';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      session: { email: 'dono@padariaze.com.br', token: 'token' },
+    });
+    (usePathname as unknown as ReturnType<typeof vi.fn>).mockReturnValue('/produtos');
+    empresa(['site', 'crm', 'blog']);
+  });
+
+  it('em_atraso, gere: o texto de hoje, a linha do boleto e "Gerar fatura para pagar" para /reativar na mesma aba, sem a linha do e-mail', async () => {
+    await montarCom(resumoEmAtrasoSemFaturaComReativacao);
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent(TEXTO_EM_ATRASO);
+    expect(status).toHaveTextContent(LINHA_DO_BOLETO);
+
+    const gerar = within(faixa()).getByRole('link', { name: GERAR });
+    expect(gerar).toHaveAttribute('href', '/reativar');
+    expect(gerar).not.toHaveAttribute('target');
+    expect(screen.queryByText(/Não conseguimos abrir o link da fatura/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'atendimento@unumpeople.com.br' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Pagar fatura/ })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['sem cobrança de reativação', resumoBloqueadoSemFaturaComReativacao],
+    ['com a cobrança de reativação pendente', resumoBloqueadoSemFaturaComReativacaoPendente],
+  ])('bloqueado, gere, %s: o texto do estado e "Gerar fatura para pagar" para /reativar', async (_nome, resumo) => {
+    await montarCom(resumo);
+
+    const status = within(faixa()).getByRole('status');
+    expect(status).toHaveTextContent(TEXTO_BLOQUEADO);
+    expect(status).toHaveTextContent(LINHA_DO_BOLETO);
+    const gerar = within(faixa()).getByRole('link', { name: GERAR });
+    expect(gerar).toHaveAttribute('href', '/reativar');
+    expect(gerar).not.toHaveAttribute('target');
+    expect(screen.queryByText(/Não conseguimos abrir o link da fatura/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Pagar fatura/ })).not.toBeInTheDocument();
+  });
+
+  it('sem pode_gerir: "Avise o responsável pela conta", sem "Gerar fatura para pagar"', async () => {
+    await montarCom(resumoBloqueadoSemFaturaComReativacaoSemGerir);
+
+    expect(within(faixa()).getByRole('status')).toHaveTextContent(TEXTO_BLOQUEADO);
+    expect(screen.getByText('Avise o responsável pela conta')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: GERAR })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Não conseguimos abrir o link da fatura/)).not.toBeInTheDocument();
+  });
+
+  it('em /reativar: o texto, sem "Gerar fatura para pagar"', async () => {
+    (usePathname as unknown as ReturnType<typeof vi.fn>).mockReturnValue('/reativar');
+    await montarCom(resumoBloqueadoSemFaturaComReativacao);
+
+    expect(within(faixa()).getByRole('status')).toHaveTextContent(TEXTO_BLOQUEADO);
+    expect(screen.queryAllByRole('link', { name: GERAR })).toHaveLength(0);
+    expect(screen.queryByText(/Não conseguimos abrir o link da fatura/)).not.toBeInTheDocument();
+  });
+
+  it('fatura: null sem reativacao: a linha do e-mail continua, sem "Gerar fatura para pagar"', async () => {
+    await montarCom(resumoEmAtrasoSemFatura);
+
+    expect(faixa()).toHaveTextContent(LINHA_SEM_LINK);
+    expect(screen.queryByRole('link', { name: GERAR })).not.toBeInTheDocument();
   });
 });
 

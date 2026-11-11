@@ -70,6 +70,14 @@ function LinhaSemLink() {
   );
 }
 
+function semFaturaComReativacao(resumo: ResumoDeCobranca): boolean {
+  return (
+    (resumo.situacao === 'em_atraso' || resumo.situacao === 'bloqueado') &&
+    resumo.fatura === null &&
+    resumo.reativacao !== undefined
+  );
+}
+
 function Acao({
   resumo,
   aoPagar,
@@ -90,6 +98,17 @@ function Acao({
     return (
       <a href="/reativar" className={BOTAO_PRIMARIO}>
         Reativar minha conta
+      </a>
+    );
+  }
+
+  // Fase 7 (spec-f7 RF7-07, DV-54): em atraso sem fatura para pagar, a API manda `reativacao`;
+  // a fatura avulsa é gerada em /reativar, e o link toma o lugar da linha do e-mail.
+  if (semFaturaComReativacao(resumo)) {
+    if (naReativacao) return null;
+    return (
+      <a href="/reativar" className={BOTAO_PRIMARIO}>
+        Gerar fatura para pagar
       </a>
     );
   }
@@ -218,7 +237,7 @@ export default function FaixaDeCobranca() {
                 </>
               )}
             </div>
-            {podePagar && resumo.pode_gerir && !resumo.fatura?.link && (
+            {podePagar && resumo.pode_gerir && !resumo.fatura?.link && !semFaturaComReativacao(resumo) && (
               <div className="mt-1">
                 <LinhaSemLink />
               </div>

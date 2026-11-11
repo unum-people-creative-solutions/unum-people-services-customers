@@ -4,6 +4,7 @@
 // de toda página (BP-T §4). Textos aprovados; a UI não decide autorização: o link de
 // pagar só existe quando a API mandou (pode_gerir).
 import { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { AlertCircle, CheckCircle, ExternalLink, Lock, RefreshCw, X } from 'lucide-react';
 import { useCobranca } from '@/contexts/CobrancaContext';
 import { useTenant } from '@/contexts/TenantContext';
@@ -73,15 +74,19 @@ function Acao({
   resumo,
   aoPagar,
   pagarComoSecundario,
+  naReativacao,
 }: {
   resumo: ResumoDeCobranca;
   aoPagar: (vencimento: string) => void;
   pagarComoSecundario: boolean;
+  naReativacao: boolean;
 }) {
   if (!resumo.pode_gerir) return <AviseOResponsavel />;
 
   // Fase 4 (RF4-05, BP-T §4.2): a reativação é feita pelo cliente, na tela /reativar.
+  // Na própria /reativar a faixa fica só com o texto (Verifier F4 L7).
   if (resumo.situacao === 'fora_do_ar') {
+    if (naReativacao) return null;
     return (
       <a href="/reativar" className={BOTAO_PRIMARIO}>
         Reativar minha conta
@@ -112,6 +117,7 @@ function Acao({
 export default function FaixaDeCobranca() {
   const { resumo, erro, recarregar } = useCobranca();
   const { activeTenantId, availableTenants } = useTenant();
+  const pathname = usePathname();
   const espera = useEsperaDoPagamento(activeTenantId, resumo, recarregar);
   // Último resumo em atraso: diz, depois de confirmado, se o acesso estava bloqueado e a quê.
   const ultimoAtrasoRef = useRef<ResumoDeCobranca | null>(null);
@@ -234,6 +240,7 @@ export default function FaixaDeCobranca() {
             resumo={resumo}
             aoPagar={espera.iniciar}
             pagarComoSecundario={emEspera}
+            naReativacao={pathname === '/reativar'}
           />
         </div>
       </div>

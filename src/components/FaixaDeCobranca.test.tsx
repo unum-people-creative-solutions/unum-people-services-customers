@@ -136,6 +136,17 @@ describe('FaixaDeCobranca (RF2-32)', () => {
     expect(screen.queryByRole('link', { name: /Pagar fatura/ })).not.toBeInTheDocument();
   });
 
+  // Verifier F4 L7: em /reativar a faixa não aponta para a própria página; o texto continua.
+  it('fora_do_ar, gere, em /reativar: o mesmo texto, sem o link "Reativar minha conta"', async () => {
+    (usePathname as unknown as ReturnType<typeof vi.fn>).mockReturnValue('/reativar');
+    await montarCom(resumoForaDoAr);
+
+    expect(within(faixa()).getByRole('status')).toHaveTextContent(
+      'Sua página está fora do ar por falta de pagamento. A conta será cancelada em 04/01.',
+    );
+    expect(screen.queryAllByRole('link', { name: 'Reativar minha conta' })).toHaveLength(0);
+  });
+
   it('sem pode_gerir em em_atraso: sem link de pagar no DOM e "Avise o responsável pela conta"', async () => {
     const { container } = await montarCom(resumoEmAtrasoSemGerir);
 

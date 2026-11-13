@@ -8,23 +8,34 @@ import { logoutFromHostedUI } from "@/lib/pkce";
 import { useAuthStore } from "@/store/authStore";
 import { useTenant } from "@/contexts/TenantContext";
 import { useMeusAcessos } from "@/hooks/useMeusAcessos";
+import { useCobranca } from "@/contexts/CobrancaContext";
 import { TenantSwitcher } from "./TenantSwitcher";
 
 export default function AppHeader() {
   const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
   const session = useAuthStore((state) => state.session);
+  const rawNome = useAuthStore((state) => state.nomeSobrescrito);
+  const nomeSobrescrito = typeof rawNome === "string" ? rawNome : null;
   const { activeTenantId } = useTenant();
   const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
+
+  let enderecoPendente = false;
+  try {
+    const cobranca = useCobranca();
+    enderecoPendente = Boolean(cobranca?.resumo?.endereco_pendente);
+  } catch {
+    enderecoPendente = false;
+  }
 
   const handleLogout = () => {
     logout();
     logoutFromHostedUI();
   };
 
-  // Nome da claim do id_token; senão, o e-mail da sessão.
-  let nome = session?.email ?? "";
-  if (session?.token) {
+  // Nome sobrescrito pelo PerfilService; senão da claim do id_token; senão, o e-mail da sessão.
+  let nome = nomeSobrescrito || session?.email || "";
+  if (!nomeSobrescrito && session?.token) {
     try {
       const claims = jwtDecode<{ name?: string }>(session.token);
       const name = claims.name?.trim();
@@ -86,13 +97,29 @@ export default function AppHeader() {
               Usuários
             </a>
           )}
+          {pathname !== "/meus-dados" && (
+            <a
+              href="/meus-dados"
+              className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition flex items-center gap-1.5"
+              aria-label={enderecoPendente ? "Meus dados, falta o endereço" : undefined}
+            >
+              <span>Meus dados</span>
+              {enderecoPendente && (
+                <span
+                  className="inline-block w-2 h-2 rounded-full bg-amber-500"
+                  aria-hidden="true"
+                />
+              )}
+            </a>
+          )}
           {session && (
-            <span
+            <a
+              href="/meus-dados"
               title={session.email}
-              className="text-sm font-semibold text-gray-800 max-w-[12rem] truncate"
+              className="text-sm font-semibold text-gray-800 max-w-[12rem] truncate hover:text-brand-blue transition"
             >
               {nome}
-            </span>
+            </a>
           )}
           <button
             onClick={handleLogout}

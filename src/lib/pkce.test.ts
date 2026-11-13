@@ -3,6 +3,7 @@ import {
   generateCodeVerifier,
   generateCodeChallenge,
   buildAuthorizeUrl,
+  buildForgotPasswordUrl,
   redirectToHostedUI,
   logoutFromHostedUI,
   PKCE_VERIFIER_STORAGE_KEY,
@@ -63,6 +64,25 @@ describe("pkce", () => {
       expect(parsed.searchParams.get("redirect_uri")).toBe("https://customer.unumpeople.com.br/auth/callback");
       expect(parsed.searchParams.get("code_challenge")).toBe("challenge-abc");
       expect(parsed.searchParams.get("code_challenge_method")).toBe("S256");
+      expect(url).not.toMatch(/code_verifier/);
+    });
+  });
+
+  describe("buildForgotPasswordUrl (RF-DNG-32, TASK-FE-302)", () => {
+    it("monta a URL com os mesmos client_id, response_type, scope e redirect_uri do buildAuthorizeUrl", () => {
+      const url = buildForgotPasswordUrl({
+        domain: "https://auth.unumpeople.com.br",
+        clientId: "customers-client-id",
+        redirectUri: "https://customer.unumpeople.com.br/auth/callback",
+      });
+
+      const parsed = new URL(url);
+      expect(parsed.origin + parsed.pathname).toBe("https://auth.unumpeople.com.br/forgotPassword");
+      expect(parsed.searchParams.get("client_id")).toBe("customers-client-id");
+      expect(parsed.searchParams.get("response_type")).toBe("code");
+      expect(parsed.searchParams.get("scope")).toBe("openid email profile");
+      expect(parsed.searchParams.get("redirect_uri")).toBe("https://customer.unumpeople.com.br/auth/callback");
+      expect(url).not.toMatch(/code_challenge/);
       expect(url).not.toMatch(/code_verifier/);
     });
   });

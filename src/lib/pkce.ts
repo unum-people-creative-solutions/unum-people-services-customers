@@ -35,6 +35,40 @@ export function buildAuthorizeUrl(params: {
   return `${params.domain}/oauth2/authorize?${query.toString()}`;
 }
 
+export function buildForgotPasswordUrl(params?: {
+  domain?: string;
+  clientId?: string;
+  redirectUri?: string;
+}): string {
+  let domain = params?.domain;
+  let clientId = params?.clientId;
+  if (!domain || !clientId) {
+    try {
+      const env = getEnvConfig();
+      domain = domain ?? env.domain;
+      clientId = clientId ?? env.clientId;
+    } catch {
+      domain = domain ?? (process.env.NEXT_PUBLIC_COGNITO_HOSTED_UI_DOMAIN || "https://auth.unumpeople.com.br");
+      clientId = clientId ?? (process.env.NEXT_PUBLIC_COGNITO_CUSTOMERS_CLIENT_ID || "");
+    }
+  }
+
+  const redirectUri =
+    params?.redirectUri ??
+    (typeof window !== "undefined"
+      ? `${window.location.origin}/auth/callback`
+      : "https://customers.unumpeople.com.br/auth/callback");
+
+  const query = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    scope: "openid email profile",
+    redirect_uri: redirectUri,
+  });
+
+  return `${domain}/forgotPassword?${query.toString()}`;
+}
+
 export const PKCE_VERIFIER_STORAGE_KEY = "pkce_code_verifier";
 export const AUTH_RETURN_TO_STORAGE_KEY = "auth_return_to";
 

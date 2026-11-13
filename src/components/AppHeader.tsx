@@ -8,6 +8,7 @@ import { logoutFromHostedUI } from "@/lib/pkce";
 import { useAuthStore } from "@/store/authStore";
 import { useTenant } from "@/contexts/TenantContext";
 import { useMeusAcessos } from "@/hooks/useMeusAcessos";
+import { useCobrancaOpcional } from "@/contexts/CobrancaContext";
 import { TenantSwitcher } from "./TenantSwitcher";
 
 export default function AppHeader() {
@@ -16,6 +17,8 @@ export default function AppHeader() {
   const session = useAuthStore((state) => state.session);
   const { activeTenantId } = useTenant();
   const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
+  const cobranca = useCobrancaOpcional();
+  const enderecoPendente = Boolean(cobranca?.resumo?.endereco_pendente);
 
   const handleLogout = () => {
     logout();
@@ -84,6 +87,21 @@ export default function AppHeader() {
               className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition"
             >
               Usuários
+            </a>
+          )}
+          {pathname !== "/meus-dados" && (
+            <a
+              href="/meus-dados"
+              className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition flex items-center gap-1.5"
+              aria-label={enderecoPendente ? "Meus dados, falta o endereço" : undefined}
+            >
+              <span>Meus dados</span>
+              {enderecoPendente && (
+                <span
+                  className="inline-block w-2 h-2 rounded-full bg-amber-500"
+                  aria-hidden="true"
+                />
+              )}
             </a>
           )}
           {session && (

@@ -58,4 +58,25 @@ describe("AppHeader: quem está logado", () => {
     expect(screen.queryByText("ana@clinica.com")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Sair/ })).toBeInTheDocument();
   });
+
+  it("o nome no topo é um link para /meus-dados (RF-DNG-31)", () => {
+    useAuthStore.setState({
+      session: { email: "ana@clinica.com", token: token({ email: "ana@clinica.com", name: "Ana Souza" }) },
+      isAuthenticated: true,
+    });
+    render(<AppHeader />);
+    const linkNome = screen.getByRole("link", { name: "Ana Souza" });
+    expect(linkNome).toHaveAttribute("href", "/meus-dados");
+  });
+
+  it("mostra o nome atualizado no authStore imediatamente, sobrescrevendo o do token (RF-DNG-31, T18)", () => {
+    useAuthStore.setState({
+      session: { email: "ana@clinica.com", token: token({ email: "ana@clinica.com", name: "Ana Antiga" }) },
+      isAuthenticated: true,
+    });
+    useAuthStore.getState().atualizarNome("Ana Nova");
+    render(<AppHeader />);
+    expect(screen.getByRole("link", { name: "Ana Nova" })).toHaveAttribute("href", "/meus-dados");
+    expect(screen.queryByText("Ana Antiga")).not.toBeInTheDocument();
+  });
 });

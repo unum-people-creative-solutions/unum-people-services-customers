@@ -15,6 +15,7 @@ export default function AppHeader() {
   const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
   const session = useAuthStore((state) => state.session);
+  const nomeSobrescrito = useAuthStore((state) => state.nomeSobrescrito);
   const { activeTenantId } = useTenant();
   const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
   const cobranca = useCobrancaOpcional();
@@ -25,9 +26,9 @@ export default function AppHeader() {
     logoutFromHostedUI();
   };
 
-  // Nome da claim do id_token; senão, o e-mail da sessão.
-  let nome = session?.email ?? "";
-  if (session?.token) {
+  // Nome sobrescrito pelo PerfilService; senão da claim do id_token; senão, o e-mail da sessão.
+  let nome = nomeSobrescrito || session?.email || "";
+  if (!nomeSobrescrito && session?.token) {
     try {
       const claims = jwtDecode<{ name?: string }>(session.token);
       const name = claims.name?.trim();
@@ -105,12 +106,13 @@ export default function AppHeader() {
             </a>
           )}
           {session && (
-            <span
+            <a
+              href="/meus-dados"
               title={session.email}
-              className="text-sm font-semibold text-gray-800 max-w-[12rem] truncate"
+              className="text-sm font-semibold text-gray-800 max-w-[12rem] truncate hover:text-brand-blue transition"
             >
               {nome}
-            </span>
+            </a>
           )}
           <button
             onClick={handleLogout}

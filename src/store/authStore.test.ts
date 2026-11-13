@@ -51,4 +51,16 @@ describe("authStore", () => {
     expect(state.session).toBeNull();
     expect(state.isAuthenticated).toBe(false);
   });
+
+  it("deve permitir atualizarNome e limpar ao deslogar ou definir sessao", () => {
+    useAuthStore.getState().setSession({
+      email: "user@example.com",
+      token: "some-jwt-token",
+    });
+    useAuthStore.getState().atualizarNome("Novo Nome");
+    expect(useAuthStore.getState().nomeSobrescrito).toBe("Novo Nome");
+
+    useAuthStore.getState().logout();
+    expect(useAuthStore.getState().nomeSobrescrito).toBeNull();
+  });
 });

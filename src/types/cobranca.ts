@@ -31,6 +31,8 @@ export interface ResumoDeCobranca {
   // Lista, nunca null.
   ferramentas_bloqueadas: FerramentaBloqueada[];
   pode_gerir: boolean;
+  // dados-do-negocio: verdadeiro só para quem pode editar e está sem endereço completo.
+  endereco_pendente?: boolean;
   // Fase 4 (RF4-04) e fase 7 (spec-f7 RF7-05): em `fora_do_ar` e, sem fatura, em
   // `em_atraso`/`bloqueado`. `link` preenchido quando há cobrança de reativação pendente e
   // pode_gerir; senão null.

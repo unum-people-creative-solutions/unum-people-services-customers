@@ -1,16 +1,18 @@
 'use client';
 
-// dados-do-negocio: página Meus dados (RF-DNG-24, TASK-FE-204).
+// dados-do-negocio: página Meus dados (RF-DNG-24, RF-DNG-30, TASK-FE-204, TASK-FE-301).
 import { useEffect, useRef, useState } from 'react';
 import AppHeader from '@/components/AppHeader';
 import SecaoNegocio from '@/components/meus-dados/SecaoNegocio';
+import SecaoVoce from '@/components/meus-dados/SecaoVoce';
 import { useTenant } from '@/contexts/TenantContext';
-import { NegocioService } from '@/services/meusDados';
-import type { DadosDoNegocio } from '@/types/meusDados';
+import { NegocioService, PerfilService } from '@/services/meusDados';
+import type { DadosDoNegocio, Perfil } from '@/types/meusDados';
 
 export default function MeusDadosPage() {
   const { activeTenantId, isLoadingTenants } = useTenant();
   const [dadosNegocio, setDadosNegocio] = useState<DadosDoNegocio | null>(null);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const seqRef = useRef(0);
@@ -26,12 +28,16 @@ export default function MeusDadosPage() {
 
     void (async () => {
       try {
-        const resp = await NegocioService.ler(tenantId);
+        const [negocioResp, perfilResp] = await Promise.all([
+          NegocioService.ler(tenantId),
+          PerfilService.ler(),
+        ]);
         if (cancelado || seq !== seqRef.current) return;
-        setDadosNegocio(resp);
+        setDadosNegocio(negocioResp);
+        setPerfil(perfilResp);
       } catch {
         if (cancelado || seq !== seqRef.current) return;
-        setErro('Não foi possível carregar os dados do negócio.');
+        setErro('Não foi possível carregar os dados.');
       } finally {
         if (!cancelado && seq === seqRef.current) {
           setCarregando(false);
@@ -68,8 +74,12 @@ export default function MeusDadosPage() {
           >
             {erro}
           </div>
-        ) : dadosNegocio && activeTenantId ? (
+        ) : dadosNegocio && perfil && activeTenantId ? (
           <div className="space-y-8">
+            <SecaoVoce
+              perfilInicial={perfil}
+              onSalvo={(atualizado) => setPerfil(atualizado)}
+            />
             <SecaoNegocio
               dadosIniciais={dadosNegocio}
               tenantId={activeTenantId}

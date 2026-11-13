@@ -28,7 +28,6 @@ vi.mock('@/contexts/TenantContext', () => ({
 }));
 
 vi.mock('@/contexts/CobrancaContext', () => ({
-  useCobrancaOpcional: vi.fn(() => ({ resumo: null })),
   useCobranca: vi.fn(() => ({ resumo: null })),
 }));
 

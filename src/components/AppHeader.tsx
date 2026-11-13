@@ -8,7 +8,7 @@ import { logoutFromHostedUI } from "@/lib/pkce";
 import { useAuthStore } from "@/store/authStore";
 import { useTenant } from "@/contexts/TenantContext";
 import { useMeusAcessos } from "@/hooks/useMeusAcessos";
-import { useCobrancaOpcional } from "@/contexts/CobrancaContext";
+import { useCobranca } from "@/contexts/CobrancaContext";
 import { TenantSwitcher } from "./TenantSwitcher";
 
 export default function AppHeader() {
@@ -18,8 +18,14 @@ export default function AppHeader() {
   const nomeSobrescrito = useAuthStore((state) => state.nomeSobrescrito);
   const { activeTenantId } = useTenant();
   const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
-  const cobranca = useCobrancaOpcional();
-  const enderecoPendente = Boolean(cobranca?.resumo?.endereco_pendente);
+
+  let enderecoPendente = false;
+  try {
+    const cobranca = useCobranca();
+    enderecoPendente = Boolean(cobranca?.resumo?.endereco_pendente);
+  } catch {
+    enderecoPendente = false;
+  }
 
   const handleLogout = () => {
     logout();

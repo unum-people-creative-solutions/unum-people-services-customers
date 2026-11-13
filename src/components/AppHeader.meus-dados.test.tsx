@@ -4,12 +4,11 @@ import { usePathname } from 'next/navigation';
 import AppHeader from './AppHeader';
 
 const useMeusAcessos = vi.hoisted(() => vi.fn());
-const useCobrancaOpcional = vi.hoisted(() => vi.fn());
+const useCobranca = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/useMeusAcessos', () => ({ useMeusAcessos }));
 vi.mock('@/contexts/CobrancaContext', () => ({
-  useCobrancaOpcional,
-  useCobranca: vi.fn(),
+  useCobranca,
 }));
 vi.mock('next/navigation', () => ({ usePathname: vi.fn() }));
 vi.mock('@/lib/pkce', () => ({ logoutFromHostedUI: vi.fn() }));
@@ -28,7 +27,7 @@ describe('AppHeader — item Meus dados e alerta (TASK-FE-204, RF-DNG-24, T19)',
     vi.clearAllMocks();
     vi.mocked(usePathname).mockReturnValue('/produtos');
     useMeusAcessos.mockReturnValue({ podeGerirUsuarios: true, carregando: false, erro: false });
-    useCobrancaOpcional.mockReturnValue({ resumo: null });
+    useCobranca.mockReturnValue({ resumo: null });
   });
 
   it('mostra o link Meus dados depois de Usuários', () => {
@@ -48,7 +47,7 @@ describe('AppHeader — item Meus dados e alerta (TASK-FE-204, RF-DNG-24, T19)',
   });
 
   it('T19 — com endereco_pendente: true no resumo de cobranca, o link inclui "falta o endereço"', () => {
-    useCobrancaOpcional.mockReturnValue({
+    useCobranca.mockReturnValue({
       resumo: { endereco_pendente: true },
     });
 

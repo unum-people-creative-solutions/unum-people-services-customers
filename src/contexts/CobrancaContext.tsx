@@ -84,7 +84,3 @@ export const useCobranca = () => {
   }
   return context;
 };
-
-export const useCobrancaOpcional = () => {
-  return useContext(CobrancaContext);
-};

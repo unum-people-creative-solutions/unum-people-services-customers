@@ -15,7 +15,8 @@ export default function AppHeader() {
   const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
   const session = useAuthStore((state) => state.session);
-  const nomeSobrescrito = useAuthStore((state) => state.nomeSobrescrito);
+  const rawNome = useAuthStore((state) => state.nomeSobrescrito);
+  const nomeSobrescrito = typeof rawNome === "string" ? rawNome : null;
   const { activeTenantId } = useTenant();
   const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
 

@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import dados30 from '@/services/__fixtures__/visitas/me-visitas-30.json';
+import dados7Vazio from '@/services/__fixtures__/visitas/me-visitas-7-vazio.json';
 import GraficoDeVisitas from './GraficoDeVisitas';
 
 // spec: metricas-de-visitas MV-76, MV-78 (TASK-PORTAL-506), com os `dias` de
@@ -41,5 +42,13 @@ describe('GraficoDeVisitas', () => {
     expect(screen.queryByText('20/10')).not.toBeInTheDocument();
     expect(screen.queryByText('02/11')).not.toBeInTheDocument();
     expect(screen.queryByText('16/11')).not.toBeInTheDocument();
+  });
+
+  it('com número ímpar de dias, o rótulo do meio é Math.floor(7 / 2): 14/11, e não 15/11', () => {
+    render(<GraficoDeVisitas dias={dados7Vazio.dias} />);
+    expect(screen.getByText('11/11')).toBeInTheDocument();
+    expect(screen.getByText('14/11')).toBeInTheDocument();
+    expect(screen.getByText('17/11')).toBeInTheDocument();
+    expect(screen.queryByText('15/11')).not.toBeInTheDocument();
   });
 });

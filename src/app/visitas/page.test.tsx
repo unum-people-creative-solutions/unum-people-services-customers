@@ -230,6 +230,29 @@ describe('estados (T64)', () => {
     expect(screen.queryByRole('list', { name: 'Aparelho' })).not.toBeInTheDocument();
   });
 
+  it('só um dos totais zerado não é "sem visitas": com toques e sem visitas, e com visitas e sem toques, mostra os números (spec §2.8.1)', async () => {
+    const user = userEvent.setup();
+    filaVisitas.push(
+      ok(dados30),
+      ok({ ...dados7Vazio, totais: { visitas: 0, toques: 2 } }),
+      ok(dados30),
+      ok({ ...dados7Vazio, totais: { visitas: 3, toques: 0 } }),
+    );
+    render(<VisitasPage />);
+    await esperar();
+    await user.click(screen.getByRole('button', { name: '7 dias' }));
+    await esperar();
+    expect(screen.queryByText('Nenhuma visita contada nos últimos 7 dias.')).not.toBeInTheDocument();
+    expect(screen.getByRole('figure', { name: 'Visitas por dia' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '30 dias' }));
+    await esperar();
+    await user.click(screen.getByRole('button', { name: '7 dias' }));
+    await esperar();
+    expect(screen.queryByText('Nenhuma visita contada nos últimos 7 dias.')).not.toBeInTheDocument();
+    expect(screen.getByRole('figure', { name: 'Visitas por dia' })).toBeInTheDocument();
+  });
+
   it('fora do plano com upgrade que tem a tela: texto, "Disponível no plano Presença", nenhum número, nenhum botão de período (CA-MV-35)', async () => {
     filaVisitas.push(ok(dadosBloqueado));
     filaPlanos.push(ok(planosComUpgrade));

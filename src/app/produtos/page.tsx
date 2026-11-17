@@ -20,6 +20,7 @@ import { useCobranca } from "@/contexts/CobrancaContext";
 import { nomeDaSituacao } from "@/lib/cobrancaTexto";
 import { PlanosService } from "@/services/planos";
 import type { PlanoParaTroca } from "@/types/planos";
+import { upgradeQueLibera } from "@/lib/upgradeQueLibera";
 
 // RF-5A-28: o editor de cada página do configurador abre pelo slug dela.
 function editorDaPagina(slug: string): string {
@@ -44,12 +45,7 @@ function temPermissao(estado: EstadoAcessos, ferramentaId: string, permissao: st
 // cobranca-e-plano-do-cliente RF5-03 (BP-T §11.7): o upgrade mais barato com o serviço.
 // Sem a leitura (erro) ou sem plano acima com ele: null, e o cartão diz "Não incluso".
 function planoComServico(planos: PlanoParaTroca[] | null, servico: string): PlanoParaTroca | null {
-  if (!planos) return null;
-  return (
-    planos
-      .filter((p) => p.direcao === "upgrade" && p.servicos.includes(servico))
-      .sort((a, b) => a.valor - b.valor)[0] ?? null
-  );
+  return upgradeQueLibera(planos, (p) => p.servicos.includes(servico));
 }
 
 function ForaDoPlano({ plano }: { plano: PlanoParaTroca | null }) {

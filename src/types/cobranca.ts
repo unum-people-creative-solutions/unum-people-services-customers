@@ -12,6 +12,9 @@ export type SituacaoDeCobranca =
 
 export type FerramentaBloqueada = 'crm' | 'blog' | 'lp';
 
+// metricas-de-visitas §3.5 (MV-62): a situação da tela Visitas da empresa.
+export type SituacaoDasMetricasDeVisitas = 'liberado' | 'bloqueado' | 'oculto';
+
 export interface FaturaDoResumo {
   valor: number;
   vencimento: string;
@@ -37,6 +40,9 @@ export interface ResumoDeCobranca {
   // `em_atraso`/`bloqueado`. `link` preenchido quando há cobrança de reativação pendente e
   // pode_gerir; senão null.
   reativacao?: ReativacaoDoResumo;
+  // metricas-de-visitas §3.5: a API sempre manda; opcional só para os resumos dos testes
+  // antigos. Ausente vale 'oculto' (D-MV-33).
+  metricas_de_visitas?: SituacaoDasMetricasDeVisitas;
 }
 
 export interface ReativacaoDoResumo {

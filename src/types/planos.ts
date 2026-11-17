@@ -16,6 +16,8 @@ export interface PlanoParaTroca {
   usuarios: number | null;
   sem_dominio_proprio: boolean;
   sem_marca: boolean;
+  // metricas-de-visitas §3.6 (MV-64): o plano tem a tela Visitas.
+  metricas_de_visitas: boolean;
   // Lista, nunca null ("site", "blog", "crm").
   servicos: string[];
   direcao: DirecaoDoPlano;

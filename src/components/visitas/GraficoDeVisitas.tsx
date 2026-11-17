@@ -40,25 +40,28 @@ export default function GraficoDeVisitas({ dias }: { dias: DiaDoGrafico[] }) {
           ))}
         </div>
       </div>
-      <table className="sr-only">
-        <caption>Visitas e toques por dia</caption>
-        <thead>
-          <tr>
-            <th scope="col">Dia</th>
-            <th scope="col">Visitas</th>
-            <th scope="col">Toques</th>
-          </tr>
-        </thead>
-        <tbody>
-          {dias.map((d) => (
-            <tr key={d.dia}>
-              <th scope="row">{dataCompleta(d.dia)}</th>
-              <td>{numero(d.visitas)}</td>
-              <td>{numero(d.toques)}</td>
+      {/* sr-only no div: tabela ignora overflow e, com a classe nela, estica a página. */}
+      <div className="sr-only">
+        <table>
+          <caption>Visitas e toques por dia</caption>
+          <thead>
+            <tr>
+              <th scope="col">Dia</th>
+              <th scope="col">Visitas</th>
+              <th scope="col">Toques</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {dias.map((d) => (
+              <tr key={d.dia}>
+                <th scope="row">{dataCompleta(d.dia)}</th>
+                <td>{numero(d.visitas)}</td>
+                <td>{numero(d.toques)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }

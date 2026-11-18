@@ -4,6 +4,8 @@ import type { PlanoParaTroca, RespostaDosPlanos } from '@/types/planos';
 // (TECH-DESIGN §4.3). Catálogo da conta de teste (tasks-fases-3-a-6 §2): basico 14,90
 // (1 página, sem domínio próprio, 1 usuário, site), presenca 39,90 (3 páginas, 3 usuários,
 // site e blog), captacao 69,90 (5 páginas, 10 usuários, site, blog e CRM, sem a marca).
+// metricas_de_visitas (metricas-de-visitas §3.6): ligado em presenca e captacao, como na
+// liberação L3; desligado no basico.
 
 export const presencaAtual: PlanoParaTroca = {
   slug: 'presenca',
@@ -14,6 +16,7 @@ export const presencaAtual: PlanoParaTroca = {
   usuarios: 3,
   sem_dominio_proprio: false,
   sem_marca: false,
+  metricas_de_visitas: true,
   servicos: ['site', 'blog'],
   direcao: 'atual',
   indisponivel_por: null,
@@ -28,6 +31,7 @@ export const captacaoUpgrade: PlanoParaTroca = {
   usuarios: 10,
   sem_dominio_proprio: false,
   sem_marca: true,
+  metricas_de_visitas: true,
   servicos: ['site', 'blog', 'crm'],
   direcao: 'upgrade',
   indisponivel_por: null,
@@ -42,6 +46,7 @@ export const basicoDowngrade: PlanoParaTroca = {
   usuarios: 1,
   sem_dominio_proprio: true,
   sem_marca: false,
+  metricas_de_visitas: false,
   servicos: ['site'],
   direcao: 'downgrade',
   indisponivel_por: null,

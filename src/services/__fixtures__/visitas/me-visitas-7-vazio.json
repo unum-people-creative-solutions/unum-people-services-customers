@@ -1,0 +1,18 @@
+{
+  "disponivel": true,
+  "periodo": 7,
+  "de": "2026-11-11",
+  "ate": "2026-11-17",
+  "totais": { "visitas": 0, "toques": 0 },
+  "dias": [
+    { "dia": "2026-11-11", "visitas": 0, "toques": 0 },
+    { "dia": "2026-11-12", "visitas": 0, "toques": 0 },
+    { "dia": "2026-11-13", "visitas": 0, "toques": 0 },
+    { "dia": "2026-11-14", "visitas": 0, "toques": 0 },
+    { "dia": "2026-11-15", "visitas": 0, "toques": 0 },
+    { "dia": "2026-11-16", "visitas": 0, "toques": 0 },
+    { "dia": "2026-11-17", "visitas": 0, "toques": 0 }
+  ],
+  "origens": { "google": 0, "instagram": 0, "facebook": 0, "whatsapp": 0, "outros": 0, "direto": 0 },
+  "aparelhos": { "celular": 0, "computador": 0 }
+}

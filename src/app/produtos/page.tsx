@@ -14,12 +14,14 @@ import {
   LayoutTemplate
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import ForaDoPlano from "@/components/ForaDoPlano";
 import { useTenant } from "@/contexts/TenantContext";
 import { siteHostLabel } from "@/lib/siteHost";
 import { useCobranca } from "@/contexts/CobrancaContext";
 import { nomeDaSituacao } from "@/lib/cobrancaTexto";
 import { PlanosService } from "@/services/planos";
 import type { PlanoParaTroca } from "@/types/planos";
+import { upgradeQueLibera } from "@/lib/upgradeQueLibera";
 
 // RF-5A-28: o editor de cada página do configurador abre pelo slug dela.
 function editorDaPagina(slug: string): string {
@@ -44,35 +46,7 @@ function temPermissao(estado: EstadoAcessos, ferramentaId: string, permissao: st
 // cobranca-e-plano-do-cliente RF5-03 (BP-T §11.7): o upgrade mais barato com o serviço.
 // Sem a leitura (erro) ou sem plano acima com ele: null, e o cartão diz "Não incluso".
 function planoComServico(planos: PlanoParaTroca[] | null, servico: string): PlanoParaTroca | null {
-  if (!planos) return null;
-  return (
-    planos
-      .filter((p) => p.direcao === "upgrade" && p.servicos.includes(servico))
-      .sort((a, b) => a.valor - b.valor)[0] ?? null
-  );
-}
-
-function ForaDoPlano({ plano }: { plano: PlanoParaTroca | null }) {
-  if (!plano) {
-    return (
-      <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
-        <Lock size={14} />
-        Não incluso neste plano
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-gray-700 text-center">{`Disponível no plano ${plano.nome}`}</p>
-      <a
-        href="/plano/mudar"
-        className="w-full bg-white border border-brand-blue text-brand-blue py-2.5 px-4 rounded-xl font-bold hover:bg-blue-50 transition flex items-center justify-center gap-2 text-sm"
-      >
-        Ver planos
-        <ArrowRight size={16} />
-      </a>
-    </div>
-  );
+  return upgradeQueLibera(planos, (p) => p.servicos.includes(servico));
 }
 
 const SELO_FORA_DO_PLANO = (

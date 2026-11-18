@@ -361,8 +361,8 @@ describe('estados (T64)', () => {
 
 // spec: visitas-por-pagina VP-12 a VP-17, T06, CA-VP-10 a CA-VP-15 (TASK-PORTAL-603). As
 // respostas são os arquivos de contrato da API; a de "beach-2" é a dos 30 dias com a
-// página escolhida trocada, como a API devolve para ?pagina=beach-2.
-const dadosBeach2 = { ...dados30, pagina: 'beach-2' };
+// página escolhida e os totais trocados, como a API devolve para ?pagina=beach-2.
+const dadosBeach2 = { ...dados30, pagina: 'beach-2', totais: { visitas: 31, toques: 5 } };
 const LINHA_DE_ENDERECO = /^de /;
 
 describe('página da empresa (T06)', () => {
@@ -395,7 +395,8 @@ describe('página da empresa (T06)', () => {
       '/me/visitas?periodo=30&tenant_id=tenant-padaria&pagina=beach-2',
     ]);
     expect(screen.getByRole('combobox', { name: 'Página' })).toHaveValue('beach-2');
-    expect(screen.getByText('214')).toBeInTheDocument();
+    expect(screen.getByText('31')).toBeInTheDocument();
+    expect(screen.queryByText('214')).not.toBeInTheDocument();
   });
 
   it('a resposta atrasada da página anterior é descartada', async () => {
@@ -448,6 +449,35 @@ describe('página da empresa (T06)', () => {
 
     expect(screen.getByText(FORA_DO_PLANO)).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByText(LINHA_DE_ENDERECO)).not.toBeInTheDocument();
+  });
+
+  it('fora do plano depois de uma leitura com 2 páginas: o seletor e a linha somem (VP-17)', async () => {
+    const user = userEvent.setup();
+    filaVisitas.push(ok(dados30), ok(dadosBloqueado));
+    filaPlanos.push(ok(planosComUpgrade));
+    render(<VisitasPage />);
+    await esperar();
+    expect(screen.getByRole('combobox', { name: 'Página' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '7 dias' }));
+    await esperar();
+    expect(screen.getByText(FORA_DO_PLANO)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByText(LINHA_DE_ENDERECO)).not.toBeInTheDocument();
+  });
+
+  it('fora do plano depois de uma leitura com 1 página: a linha de endereço some (VP-17)', async () => {
+    const user = userEvent.setup();
+    filaVisitas.push(ok(dados7Vazio), ok(dadosBloqueado));
+    filaPlanos.push(ok(planosComUpgrade));
+    render(<VisitasPage />);
+    await esperar();
+    expect(screen.getByText('de 828imoveis.unumpages.app')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '7 dias' }));
+    await esperar();
+    expect(screen.getByText(FORA_DO_PLANO)).toBeInTheDocument();
     expect(screen.queryByText(LINHA_DE_ENDERECO)).not.toBeInTheDocument();
   });
 

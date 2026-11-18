@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { Lock, LogOut } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import { logoutFromHostedUI } from "@/lib/pkce";
 import { useAuthStore } from "@/store/authStore";
@@ -10,6 +10,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useMeusAcessos } from "@/hooks/useMeusAcessos";
 import { useCobranca } from "@/contexts/CobrancaContext";
 import { TenantSwitcher } from "./TenantSwitcher";
+import type { SituacaoDasMetricasDeVisitas } from "@/types/cobranca";
 
 export default function AppHeader() {
   const pathname = usePathname();
@@ -21,9 +22,12 @@ export default function AppHeader() {
   const { podeGerirUsuarios } = useMeusAcessos(activeTenantId);
 
   let enderecoPendente = false;
+  // metricas-de-visitas MV-70: sem resumo (carregando, erro, sem provedor) ou sem o campo, 'oculto'.
+  let visitas: SituacaoDasMetricasDeVisitas = "oculto";
   try {
     const cobranca = useCobranca();
     enderecoPendente = Boolean(cobranca?.resumo?.endereco_pendente);
+    visitas = cobranca?.resumo?.metricas_de_visitas ?? "oculto";
   } catch {
     enderecoPendente = false;
   }
@@ -78,6 +82,16 @@ export default function AppHeader() {
               className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition"
             >
               Meus Produtos
+            </a>
+          )}
+          {(visitas === "liberado" || visitas === "bloqueado") && pathname !== "/visitas" && (
+            <a
+              href="/visitas"
+              className="text-sm font-semibold text-gray-600 hover:text-brand-blue transition flex items-center gap-1.5"
+              aria-label={visitas === "bloqueado" ? "Visitas, fora do seu plano" : undefined}
+            >
+              {visitas === "bloqueado" && <Lock size={14} aria-hidden="true" />}
+              <span>Visitas</span>
             </a>
           )}
           {/* cobranca-e-plano-do-cliente RF3-02: para todo mundo da empresa; a API decide o acesso. */}

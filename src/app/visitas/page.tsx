@@ -10,12 +10,13 @@ import ForaDoPlano from '@/components/ForaDoPlano';
 import GraficoDeVisitas from '@/components/visitas/GraficoDeVisitas';
 import ListaDeParticipacao from '@/components/visitas/ListaDeParticipacao';
 import { useTenant } from '@/contexts/TenantContext';
+import { siteHostLabel } from '@/lib/siteHost';
 import { upgradeQueLibera } from '@/lib/upgradeQueLibera';
 import { ehRecusaPorPermissao, MENSAGEM_SEM_PERMISSAO } from '@/services/api';
 import { PlanosService } from '@/services/planos';
 import { VisitasService } from '@/services/visitas';
 import type { PlanoParaTroca } from '@/types/planos';
-import type { PeriodoDeVisitas, VisitasDoPeriodo } from '@/types/visitas';
+import type { PaginaDeVisitas, PeriodoDeVisitas, VisitasDoPeriodo } from '@/types/visitas';
 
 type Estado =
   | { status: 'carregando' }
@@ -34,7 +35,7 @@ const PERIODOS: PeriodoDeVisitas[] = [7, 30, 90];
 
 // Textos literais da spec §2.8.2.
 const SUBTITULO =
-  'Quantas vezes a sua página foi aberta, de onde vieram as visitas e quantos toques houve para falar com você. Os números somam todas as páginas da empresa.';
+  'Quantas vezes a sua página foi aberta, de onde vieram as visitas e quantos toques houve para falar com você.';
 const AJUDA_DOS_TOQUES = 'Toques no WhatsApp, no telefone e nos botões de contato da página.';
 const NOTA_FIXA =
   "Visitas vindas do WhatsApp quase sempre aparecem como 'Direto': o WhatsApp não diz de onde o visitante veio. Recarregar a página não conta de novo, e robôs conhecidos ficam de fora.";
@@ -78,13 +79,24 @@ export default function VisitasPage() {
   // outra empresa é descartada.
   const requisicaoRef = useRef(0);
   const planosRef = useRef(0);
+  // visitas-por-pagina VP-12: a página escolhida; null deixa a API escolher (a primeira).
+  // A lista fica guardada entre leituras para o seletor não sumir enquanto carrega.
+  const [pagina, setPagina] = useState<string | null>(null);
+  const [paginas, setPaginas] = useState<PaginaDeVisitas[]>([]);
+  // A troca de período lê a página daqui, sem que adotar a página da resposta releia.
+  const paginaRef = useRef(pagina);
+  useEffect(() => {
+    paginaRef.current = pagina;
+  }, [pagina]);
 
-  // Empresa trocada: nada da anterior fica na tela.
+  // Empresa trocada: nada da anterior fica na tela, e a página volta a null (VP-12).
   const [tenantVisto, setTenantVisto] = useState(activeTenantId);
   if (activeTenantId !== tenantVisto) {
     setTenantVisto(activeTenantId);
     setEstado({ status: 'carregando' });
     setComPeriodo(false);
+    setPagina(null);
+    setPaginas([]);
   }
 
   // MV-74: a sugestão de plano só existe para quem está fora do plano. Falha vira alerta.
@@ -102,21 +114,32 @@ export default function VisitasPage() {
   }, []);
 
   const ler = useCallback(
-    async (tenantId: string, dias: PeriodoDeVisitas) => {
+    async (tenantId: string, dias: PeriodoDeVisitas, escolhida: string | null) => {
       const requisicao = ++requisicaoRef.current;
       planosRef.current++;
       setEstado({ status: 'carregando' });
       try {
-        const leitura = await VisitasService.ler(tenantId, dias);
+        let leitura = await VisitasService.ler(tenantId, dias, escolhida ?? undefined);
         if (requisicao !== requisicaoRef.current) return;
+        // VP-16: a página escolhida deixou de existir. Volta a null e relê uma vez só.
+        if ('paginaInvalida' in leitura) {
+          setPagina(null);
+          leitura = await VisitasService.ler(tenantId, dias);
+          if (requisicao !== requisicaoRef.current) return;
+        }
         if ('inexistente' in leitura) {
           setEstado({ status: 'inexistente' });
+        } else if ('paginaInvalida' in leitura) {
+          setEstado({ status: 'erro' });
         } else if (!leitura.disponivel) {
           setComPeriodo(false);
           setEstado({ status: 'fora' });
           void lerPlanos(tenantId);
         } else {
           setComPeriodo(true);
+          // VP-12: a tela adota a página da resposta.
+          setPagina(leitura.pagina);
+          setPaginas(leitura.paginas);
           setEstado({ status: 'pronto', dados: leitura });
         }
       } catch (err) {
@@ -130,7 +153,7 @@ export default function VisitasPage() {
 
   useEffect(() => {
     if (isLoadingTenants || !activeTenantId) return;
-    void ler(activeTenantId, periodo);
+    void ler(activeTenantId, periodo, paginaRef.current);
   }, [isLoadingTenants, activeTenantId, periodo, ler]);
 
   // MV-73 (D-MV-24): a empresa não tem a tela; a mesma 404 de um endereço inexistente.
@@ -138,6 +161,10 @@ export default function VisitasPage() {
 
   const carregando = estado.status === 'carregando';
   const mostraPeriodo = comPeriodo && (carregando || estado.status === 'pronto' || estado.status === 'erro');
+  // VP-13 a VP-15: seletor com 2 ou mais páginas; com uma, a linha de endereço; sem
+  // nenhuma, nada. Os dois só aparecem com os números (VP-17).
+  const mostraSeletor = mostraPeriodo && paginas.length >= 2;
+  const enderecoUnico = mostraPeriodo && paginas.length === 1 ? siteHostLabel(paginas[0].endereco) : null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -152,26 +179,53 @@ export default function VisitasPage() {
             <h2 id="visitas-titulo" className="text-xl font-black text-gray-900">
               Visitas
             </h2>
+            {enderecoUnico && (
+              <p className="text-sm font-semibold text-gray-700 mt-1">{`de ${enderecoUnico}`}</p>
+            )}
             <p className="text-sm text-gray-500 mt-1">{SUBTITULO}</p>
           </div>
 
           {mostraPeriodo && (
-            <div role="group" aria-label="Período" className="flex flex-wrap gap-2">
-              {PERIODOS.map((dias) => (
-                <button
-                  key={dias}
-                  type="button"
-                  aria-pressed={periodo === dias}
-                  onClick={() => setPeriodo(dias)}
-                  className={`min-h-[44px] px-4 rounded-xl text-sm font-bold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue ${
-                    periodo === dias
-                      ? 'bg-brand-blue border-brand-blue text-white'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {`${dias} dias`}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+              <div role="group" aria-label="Período" className="flex flex-wrap gap-2">
+                {PERIODOS.map((dias) => (
+                  <button
+                    key={dias}
+                    type="button"
+                    aria-pressed={periodo === dias}
+                    onClick={() => setPeriodo(dias)}
+                    className={`min-h-[44px] px-4 rounded-xl text-sm font-bold border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue ${
+                      periodo === dias
+                        ? 'bg-brand-blue border-brand-blue text-white'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {`${dias} dias`}
+                  </button>
+                ))}
+              </div>
+              {mostraSeletor && (
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="visitas-pagina" className="text-sm font-semibold text-gray-700">
+                    Página
+                  </label>
+                  <select
+                    id="visitas-pagina"
+                    value={pagina ?? ''}
+                    onChange={(e) => {
+                      setPagina(e.target.value);
+                      void ler(activeTenantId, periodo, e.target.value);
+                    }}
+                    className="min-h-[44px] max-w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-bold text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                  >
+                    {paginas.map((p) => (
+                      <option key={p.slug} value={p.slug}>
+                        {siteHostLabel(p.endereco)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
@@ -184,7 +238,7 @@ export default function VisitasPage() {
           ) : estado.status === 'erro' ? (
             <Alerta
               texto="Não foi possível carregar as visitas."
-              aoTentarDeNovo={() => void ler(activeTenantId, periodo)}
+              aoTentarDeNovo={() => void ler(activeTenantId, periodo, pagina)}
             />
           ) : estado.status === 'fora' ? (
             <div className={`${CARTAO} flex flex-col gap-4 max-w-md`}>

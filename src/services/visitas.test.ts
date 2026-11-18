@@ -5,6 +5,8 @@ import dados30 from './__fixtures__/visitas/me-visitas-30.json';
 import dados7Vazio from './__fixtures__/visitas/me-visitas-7-vazio.json';
 import dadosBloqueado from './__fixtures__/visitas/me-visitas-bloqueado.json';
 import dados404 from './__fixtures__/visitas/me-visitas-404.json';
+import dados400Pagina from './__fixtures__/visitas/me-visitas-400-pagina.json';
+import dadosSemPaginas from './__fixtures__/visitas/me-visitas-sem-paginas.json';
 
 // spec: metricas-de-visitas §3.4, §3.9, T60 (TASK-PORTAL-501). Os quatro JSON são cópias
 // byte a byte de internal/handler/testdata/visitas/ da API.
@@ -104,6 +106,49 @@ describe('VisitasService.ler (T60)', () => {
     responder({ status: 403, data: { error: 'forbidden', permissao: 'portal.empresa.ver' } });
     await expect(mod.VisitasService.ler('t1', 30)).rejects.toMatchObject({
       response: { status: 403, data: { permissao: 'portal.empresa.ver' } },
+    });
+  });
+});
+
+// spec: visitas-por-pagina VP-10, VP-11, T05, CA-VP-09 (TASK-PORTAL-602).
+describe('VisitasService.ler com a página (T05)', () => {
+  it('sem página, ou com página vazia, a URL é a de hoje', async () => {
+    responder({ status: 200, data: dados30 });
+    await mod.VisitasService.ler('t1', 30);
+    await mod.VisitasService.ler('t1', 30, '');
+    expect(pedidos.map((p) => p.url)).toEqual([
+      '/me/visitas?periodo=30&tenant_id=t1',
+      '/me/visitas?periodo=30&tenant_id=t1',
+    ]);
+  });
+
+  it('com a página "beach-2", acrescenta &pagina=beach-2', async () => {
+    responder({ status: 200, data: dados30 });
+    const leitura = await mod.VisitasService.ler('t1', 30, 'beach-2');
+    expect(pedidos[0].url).toBe('/me/visitas?periodo=30&tenant_id=t1&pagina=beach-2');
+    expect(leitura).toEqual(dados30);
+  });
+
+  it('a página vai sempre com encodeURIComponent', async () => {
+    responder({ status: 200, data: dados30 });
+    await mod.VisitasService.ler('t1', 7, 'a b&c#d');
+    expect(pedidos[0].url).toBe('/me/visitas?periodo=7&tenant_id=t1&pagina=a%20b%26c%23d');
+  });
+
+  it('empresa sem páginas: me-visitas-sem-paginas.json chega como está', async () => {
+    responder({ status: 200, data: dadosSemPaginas });
+    await expect(mod.VisitasService.ler('t1', 7)).resolves.toEqual(dadosSemPaginas);
+  });
+
+  it('400 com me-visitas-400-pagina.json vira { paginaInvalida: true }', async () => {
+    responder({ status: 400, data: dados400Pagina });
+    await expect(mod.VisitasService.ler('t1', 30, 'apagada')).resolves.toEqual({ paginaInvalida: true });
+  });
+
+  it('400 com periodo_invalido continua sendo lançado', async () => {
+    responder({ status: 400, data: { error: 'periodo_invalido' } });
+    await expect(mod.VisitasService.ler('t1', 30, 'beach-2')).rejects.toMatchObject({
+      response: { status: 400, data: { error: 'periodo_invalido' } },
     });
   });
 });

@@ -111,6 +111,8 @@ export default function VisitasPage() {
         if (requisicao !== requisicaoRef.current) return;
         if ('inexistente' in leitura) {
           setEstado({ status: 'inexistente' });
+        } else if ('paginaInvalida' in leitura) {
+          setEstado({ status: 'erro' });
         } else if (!leitura.disponivel) {
           setComPeriodo(false);
           setEstado({ status: 'fora' });

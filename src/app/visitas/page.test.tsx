@@ -39,7 +39,7 @@ const NOTA_FIXA =
 const FORA_DO_PLANO =
   'A contagem de visitas faz parte dos planos Presença e Captação. Ela começa no dia da troca de plano.';
 const SUBTITULO =
-  'Quantas vezes a sua página foi aberta, de onde vieram as visitas e quantos toques houve para falar com você. Os números somam todas as páginas da empresa.';
+  'Quantas vezes a sua página foi aberta, de onde vieram as visitas e quantos toques houve para falar com você.';
 
 // Cliente no Básico (Página): Presença e Captação são upgrades com a tela.
 const basicoAtual: PlanoParaTroca = { ...basicoDowngrade, direcao: 'atual' };

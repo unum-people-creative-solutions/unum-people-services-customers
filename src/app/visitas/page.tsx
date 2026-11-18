@@ -35,7 +35,7 @@ const PERIODOS: PeriodoDeVisitas[] = [7, 30, 90];
 
 // Textos literais da spec §2.8.2.
 const SUBTITULO =
-  'Quantas vezes a sua página foi aberta, de onde vieram as visitas e quantos toques houve para falar com você. Os números somam todas as páginas da empresa.';
+  'Quantas vezes a sua página foi aberta, de onde vieram as visitas e quantos toques houve para falar com você.';
 const AJUDA_DOS_TOQUES = 'Toques no WhatsApp, no telefone e nos botões de contato da página.';
 const NOTA_FIXA =
   "Visitas vindas do WhatsApp quase sempre aparecem como 'Direto': o WhatsApp não diz de onde o visitante veio. Recarregar a página não conta de novo, e robôs conhecidos ficam de fora.";

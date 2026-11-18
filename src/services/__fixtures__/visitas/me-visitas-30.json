@@ -1,5 +1,10 @@
 {
   "disponivel": true,
+  "pagina": "copinha-beach",
+  "paginas": [
+    { "slug": "copinha-beach", "endereco": "https://souhubi.com.br" },
+    { "slug": "beach-2", "endereco": "https://beach-2.unumpages.app" }
+  ],
   "periodo": 30,
   "de": "2026-10-19",
   "ate": "2026-11-17",

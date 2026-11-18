@@ -1,5 +1,9 @@
 {
   "disponivel": true,
+  "pagina": "828imoveis",
+  "paginas": [
+    { "slug": "828imoveis", "endereco": "https://828imoveis.unumpages.app" }
+  ],
   "periodo": 7,
   "de": "2026-11-11",
   "ate": "2026-11-17",

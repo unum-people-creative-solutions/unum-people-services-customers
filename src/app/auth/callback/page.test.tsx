@@ -100,6 +100,18 @@ describe('AuthCallbackPage (TASK-FE-CUST-003)', () => {
     });
   });
 
+  it.each(['https://evil.com', '//evil.com'])('return_to inseguro %s: cai em /produtos', async (returnTo) => {
+    window.sessionStorage.setItem('pkce_code_verifier', 'verifier-123');
+    window.sessionStorage.setItem('auth_return_to', returnTo);
+    (useSearchParams as any).mockReturnValue(makeSearchParams('auth-code-123'));
+
+    render(<AuthCallbackPage />);
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/produtos');
+    });
+  });
+
   it('consome o code_verifier uma única vez (removido de sessionStorage após a leitura)', async () => {
     window.sessionStorage.setItem('pkce_code_verifier', 'verifier-123');
     (useSearchParams as any).mockReturnValue(makeSearchParams('auth-code-123'));

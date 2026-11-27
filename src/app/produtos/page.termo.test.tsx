@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import ProductsPage from "./page";
+import { useTenant } from "@/contexts/TenantContext";
 import { TenantService, AcessosService, TermsService, type TenantResponse, type TermsStatusResponse } from "@/services/api";
 
 // spec: portal-produtos-e-criar-pagina RF-PP-03 (T03): o termo pendente vira aviso em
@@ -80,7 +81,60 @@ describe("Meus Produtos: aviso de termo pendente (RF-PP-03)", () => {
 
     expect(screen.queryByText("Você tem um termo para aceitar.")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // O banner de erro da tela não tem role="alert": procura pelo texto dele.
+    expect(screen.queryByText(/não foi possível carregar/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Erro")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Seus Serviços" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "CRM Unum" })).toBeInTheDocument();
+  });
+
+  // RNF-PP-01: a resposta de uma conta que já saiu de cena não pode mexer no aviso da conta ativa.
+  describe("troca de conta", () => {
+    const useTenantDe = (id: string) => ({ activeTenantId: id, availableTenants: [], isMultiTenant: true, switchTenant: vi.fn(), isLoadingTenants: false });
+    const atrasada = <T,>() => {
+      let resolver!: (v: T) => void;
+      const promessa = new Promise<T>((resolve) => { resolver = resolve; });
+      return { promessa, resolver };
+    };
+
+    beforeEach(() => {
+      vi.mocked(TenantService.getMe).mockResolvedValue(tenant);
+      vi.mocked(AcessosService.get).mockResolvedValue({ tenant_id: "t1", operador: false, ferramentas: [] });
+    });
+
+    it("a resposta atrasada da conta anterior não faz aparecer o aviso na conta nova", async () => {
+      const antiga = atrasada<TermsStatusResponse>();
+      vi.mocked(TermsService.getStatus).mockImplementation((id) => (id === "t1" ? antiga.promessa : Promise.resolve(termos(0))));
+      vi.mocked(useTenant).mockReturnValue(useTenantDe("t1"));
+      const { rerender } = render(<ProductsPage />);
+      await waitFor(() => expect(TermsService.getStatus).toHaveBeenCalledWith("t1"));
+
+      vi.mocked(useTenant).mockReturnValue(useTenantDe("t2"));
+      rerender(<ProductsPage />);
+      await waitFor(() => expect(TermsService.getStatus).toHaveBeenCalledWith("t2"));
+      await waitFor(() => expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument());
+
+      await act(async () => {
+        antiga.resolver(termos(1));
+      });
+
+      expect(screen.queryByText("Você tem um termo para aceitar.")).not.toBeInTheDocument();
+    });
+
+    it("o aviso da conta anterior some ao trocar, mesmo com a leitura da conta nova ainda pendente", async () => {
+      const nova = atrasada<TermsStatusResponse>();
+      vi.mocked(TermsService.getStatus).mockImplementation((id) => (id === "t1" ? Promise.resolve(termos(1)) : nova.promessa));
+      vi.mocked(useTenant).mockReturnValue(useTenantDe("t1"));
+      const { rerender } = render(<ProductsPage />);
+      expect(await screen.findByText("Você tem um termo para aceitar.")).toBeInTheDocument();
+
+      vi.mocked(useTenant).mockReturnValue(useTenantDe("t2"));
+      rerender(<ProductsPage />);
+      await waitFor(() => expect(TermsService.getStatus).toHaveBeenCalledWith("t2"));
+      await waitFor(() => expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument());
+
+      expect(screen.getByRole("heading", { name: "Seus Serviços" })).toBeInTheDocument();
+      expect(screen.queryByText("Você tem um termo para aceitar.")).not.toBeInTheDocument();
+    });
   });
 });

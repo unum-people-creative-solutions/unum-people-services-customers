@@ -25,9 +25,15 @@ import { upgradeQueLibera } from "@/lib/upgradeQueLibera";
 
 // RF-5A-28: o editor de cada página do configurador abre pelo slug dela.
 function editorDaPagina(slug: string): string {
-  const base = process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
-  return `${base}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
+  return `${urlDoConfigurador()}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
 }
+
+function urlDoConfigurador(): string {
+  return process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
+}
+
+// portal-produtos-e-criar-pagina RF-PP-05: conta que ainda não pagou.
+const STATUS_AGUARDANDO_PAGAMENTO = ["AGUARDANDO_ATIVACAO", "PENDENTE_ASAAS"];
 
 type EstadoAcessos =
   | { status: "carregando" }
@@ -154,6 +160,9 @@ export default function ProductsPage() {
     : (tenant?.site_url ? [tenant.site_url] : []);
   const paginas = tenant?.paginas ?? [];
   const paginasIndisponiveis = tenant?.paginas_indisponiveis ?? false;
+  const aguardaPagamento = STATUS_AGUARDANDO_PAGAMENTO.includes(tenant?.status ?? "");
+  // RF-PP-04: ferramenta lp contratada e nenhuma página ainda: o cartão oferece "Criar página".
+  const semPaginasDaLp = podeVerLp !== null && paginas.length === 0 && !paginasIndisponiveis;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -258,7 +267,7 @@ export default function ProductsPage() {
           )}
 
           {/* Card: Configurador de páginas */}
-          {(paginas.length > 0 || paginasIndisponiveis) && (
+          {(paginas.length > 0 || paginasIndisponiveis || semPaginasDaLp) && (
             <section aria-labelledby="produto-configurador" className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition group">
               <div>
                 <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-brand-blue mb-4">
@@ -291,7 +300,11 @@ export default function ProductsPage() {
                         </a>
                       ) : (
                         <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
-                          {pagina.aguarda_publicacao === true ? "Ainda não publicada" : "Página fora do ar"}
+                          {pagina.aguarda_publicacao === true
+                            ? "Ainda não publicada"
+                            : aguardaPagamento
+                              ? "Vai ao ar quando o pagamento for confirmado"
+                              : "Página fora do ar"}
                         </div>
                       )}
                       {podeEditarLp === true && (
@@ -306,7 +319,16 @@ export default function ProductsPage() {
                     </div>
                   ))}
                 </div>
-                {podeVerLp === false && (
+                {semPaginasDaLp && podeEditarLp === true && (
+                  <a
+                    href={`${urlDoConfigurador()}/minha-conta`}
+                    className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
+                  >
+                    Criar página
+                    <ArrowRight size={16} />
+                  </a>
+                )}
+                {(podeVerLp === false || (semPaginasDaLp && podeEditarLp === false)) && (
                   <div className="w-full mt-2 bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
                     <Lock size={14} />
                     Sem acesso nesta empresa

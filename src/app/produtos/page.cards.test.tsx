@@ -40,12 +40,12 @@ vi.mock("@/contexts/CobrancaContext", () => ({
   })),
 }));
 
-function acessosComLp(permissoes: string[]) {
+function acessosComLp(permissoes: string[], contratada = true) {
   return {
     tenant_id: "t1",
     operador: false,
     ferramentas: [
-      { id: "lp", nome: "Páginas", contratada: true, papel: { id: "editor", nome: "Editor", sistema: true, implicito: false }, permissoes },
+      { id: "lp", nome: "Páginas", contratada, papel: contratada ? { id: "editor", nome: "Editor", sistema: true, implicito: false } : null, permissoes: contratada ? permissoes : [] },
     ],
   };
 }
@@ -54,9 +54,9 @@ function tenant(parcial: Partial<TenantResponse>): TenantResponse {
   return { site_url: "", site_urls: [], enabled_services: ["site"], plan_name: "Plano", status: "ATIVO", paginas: [], paginas_indisponiveis: false, ...parcial };
 }
 
-async function abrir(dados: TenantResponse, permissoesLp = ["lp.pagina.ver", "lp.rascunho.editar"]) {
+async function abrir(dados: TenantResponse, permissoesLp = ["lp.pagina.ver", "lp.rascunho.editar"], lpContratada = true) {
   vi.mocked(TenantService.getMe).mockResolvedValue(dados);
-  vi.mocked(AcessosService.get).mockResolvedValue(acessosComLp(permissoesLp) as never);
+  vi.mocked(AcessosService.get).mockResolvedValue(acessosComLp(permissoesLp, lpContratada) as never);
   render(<ProductsPage />);
   await waitFor(() => expect(screen.queryByText(/carregando seus produtos/i)).not.toBeInTheDocument());
 }
@@ -82,7 +82,7 @@ describe("Meus Produtos: Configurador de páginas e Site personalizado", () => {
   });
 
   it("cliente de site personalizado: card com o domínio próprio; sem card do configurador", async () => {
-    await abrir(tenant({ site_urls: ["https://eliziarioadv.com.br"] }));
+    await abrir(tenant({ site_urls: ["https://eliziarioadv.com.br"] }), [], false);
 
     const site = card("Site personalizado");
     expect(within(site).getByRole("link", { name: "Visitar site" })).toHaveAttribute("href", "https://eliziarioadv.com.br");
@@ -91,7 +91,7 @@ describe("Meus Produtos: Configurador de páginas e Site personalizado", () => {
   });
 
   it("sem site personalizado nem páginas, nenhum dos dois cards aparece", async () => {
-    await abrir(tenant({ enabled_services: ["crm"] }));
+    await abrir(tenant({ enabled_services: ["crm"] }), [], false);
 
     expect(screen.queryByRole("region", { name: "Site personalizado" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Configurador de páginas" })).not.toBeInTheDocument();

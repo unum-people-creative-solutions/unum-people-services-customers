@@ -90,7 +90,7 @@ describe("Meus Produtos: aviso de termo pendente (RF-PP-03)", () => {
 
   // RNF-PP-01: a resposta de uma conta que já saiu de cena não pode mexer no aviso da conta ativa.
   describe("troca de conta", () => {
-    const useTenantDe = (id: string) => ({ activeTenantId: id, availableTenants: [], isMultiTenant: true, switchTenant: vi.fn(), isLoadingTenants: false });
+    const useTenantDe = (id: string) => ({ activeTenantId: id, activeTenantName: id, availableTenants: [], isMultiTenant: true, switchTenant: vi.fn(), isLoadingTenants: false });
     const atrasada = <T,>() => {
       let resolver!: (v: T) => void;
       const promessa = new Promise<T>((resolve) => { resolver = resolve; });

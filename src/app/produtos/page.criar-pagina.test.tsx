@@ -162,6 +162,13 @@ describe("Meus Produtos: página de conta que ainda não pagou (RF-PP-05)", () =
     expect(within(card()).getByText("Ainda não publicada")).toBeInTheDocument();
   });
 
+  it.each(["AGUARDANDO_ATIVACAO", "PENDENTE_ASAAS"])("conta %s com aguarda_publicacao: Ainda não publicada vence o rótulo de pagamento", async (status) => {
+    await abrir(tenant({ status, paginas: [{ ...pagina, aguarda_publicacao: true }] }));
+
+    expect(within(card()).getByText("Ainda não publicada")).toBeInTheDocument();
+    expect(within(card()).queryByText("Vai ao ar quando o pagamento for confirmado")).not.toBeInTheDocument();
+  });
+
   it("conta aguardando com página publicada: segue com Visitar página", async () => {
     await abrir(tenant({ status: "AGUARDANDO_ATIVACAO", paginas: [{ ...pagina, publicada: true }] }));
 

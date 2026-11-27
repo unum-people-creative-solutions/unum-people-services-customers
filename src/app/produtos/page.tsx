@@ -303,7 +303,7 @@ export default function ProductsPage() {
                           <ArrowRight size={16} />
                         </a>
                       ) : (
-                        <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
+                        <div className="w-full bg-gray-100 text-gray-600 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-center">
                           {pagina.aguarda_publicacao === true
                             ? "Ainda não publicada"
                             : aguardaPagamento

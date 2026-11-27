@@ -277,7 +277,9 @@ export default function ProductsPage() {
                 </div>
                 <h4 id="produto-configurador" className="text-lg font-bold text-gray-900">Configurador de páginas</h4>
                 <p className="text-sm text-gray-600 mt-2">
-                  Suas páginas montadas no configurador da Unum People, prontas para captar contatos.
+                  {paginas.length === 0 && !paginasIndisponiveis
+                    ? "Monte a página do seu negócio no configurador da Unum People."
+                    : "Suas páginas montadas no configurador da Unum People, prontas para captar contatos."}
                 </p>
               </div>
 

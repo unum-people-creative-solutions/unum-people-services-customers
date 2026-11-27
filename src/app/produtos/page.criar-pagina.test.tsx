@@ -114,6 +114,18 @@ describe("Meus Produtos: Criar página no cartão do configurador (RF-PP-04)", (
     expect(screen.queryByRole("link", { name: "Criar página" })).not.toBeInTheDocument();
   });
 
+  it("cartão sem página: descrição própria; com página: a frase de sempre (RF-PP-04b)", async () => {
+    await abrir(tenant({}));
+    expect(within(card()).getByText("Monte a página do seu negócio no configurador da Unum People.")).toBeInTheDocument();
+    expect(within(card()).queryByText(/Suas páginas montadas/)).not.toBeInTheDocument();
+  });
+
+  it("cartão com página: mantém a descrição de hoje", async () => {
+    await abrir(tenant({ paginas: [{ slug: "copinha", endereco: "https://copinha.unumpeople.app", publicada: true }] }));
+    expect(within(card()).getByText("Suas páginas montadas no configurador da Unum People, prontas para captar contatos.")).toBeInTheDocument();
+    expect(within(card()).queryByText(/Monte a página do seu negócio/)).not.toBeInTheDocument();
+  });
+
   it("com página existente, não há Criar página", async () => {
     await abrir(tenant({ paginas: [{ slug: "copinha", endereco: "https://copinha.unumpeople.app", publicada: true }] }));
 

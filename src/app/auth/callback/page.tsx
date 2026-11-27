@@ -58,9 +58,9 @@ function AuthCallbackContent() {
 
       setSession(sessionData);
 
-      // Redireciona para /termos ou para return_to se presente e seguro
-      const validatedReturnTo = getSafeRedirect(returnTo, "/termos");
-      const target = ["/", "/auth/callback"].includes(validatedReturnTo) ? "/termos" : validatedReturnTo;
+      // Redireciona para /produtos ou para return_to se presente e seguro
+      const validatedReturnTo = getSafeRedirect(returnTo, "/produtos");
+      const target = ["/", "/auth/callback"].includes(validatedReturnTo) ? "/produtos" : validatedReturnTo;
       router.push(target);
     };
 
@@ -80,7 +80,7 @@ function AuthCallbackContent() {
             <XCircle className="text-red-500" size={48} />
             <h1 className="text-xl font-bold text-gray-800">{message}</h1>
             <button
-              onClick={() => redirectToHostedUI("/termos")}
+              onClick={() => redirectToHostedUI("/produtos")}
               className="mt-4 bg-brand-orange text-white px-6 py-2 rounded-md font-bold hover:brightness-110"
             >
               Tentar novamente

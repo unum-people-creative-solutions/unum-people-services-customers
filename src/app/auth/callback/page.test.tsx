@@ -84,7 +84,19 @@ describe('AuthCallbackPage (TASK-FE-CUST-003)', () => {
     });
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/termos');
+      expect(mockPush).toHaveBeenCalledWith('/produtos');
+    });
+  });
+
+  it.each(['/', '/auth/callback'])('return_to %s não é destino: cai em /produtos', async (returnTo) => {
+    window.sessionStorage.setItem('pkce_code_verifier', 'verifier-123');
+    window.sessionStorage.setItem('auth_return_to', returnTo);
+    (useSearchParams as any).mockReturnValue(makeSearchParams('auth-code-123'));
+
+    render(<AuthCallbackPage />);
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/produtos');
     });
   });
 
@@ -146,6 +158,6 @@ describe('AuthCallbackPage (TASK-FE-CUST-003)', () => {
     const retryButton = await screen.findByText(/tentar novamente/i);
     retryButton.click();
 
-    expect(redirectToHostedUI).toHaveBeenCalledWith('/termos');
+    expect(redirectToHostedUI).toHaveBeenCalledWith('/produtos');
   });
 });

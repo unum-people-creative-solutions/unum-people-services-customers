@@ -155,6 +155,8 @@ export default function ProductsPage() {
   const podeVerBlog = temPermissao(acessosEstado, "blog", "blog.post.ver");
   const podeVerLp = temPermissao(acessosEstado, "lp", "lp.pagina.ver");
   const podeEditarLp = temPermissao(acessosEstado, "lp", "lp.rascunho.editar");
+  // RF-PP-04a: quem só edita (Editor) não cria página; o botão levaria a uma tela sem ação.
+  const podeCriarLp = temPermissao(acessosEstado, "lp", "lp.pagina.criar");
   const sites = tenant?.site_urls?.length
     ? tenant.site_urls
     : (tenant?.site_url ? [tenant.site_url] : []);
@@ -319,7 +321,7 @@ export default function ProductsPage() {
                     </div>
                   ))}
                 </div>
-                {semPaginasDaLp && podeEditarLp === true && (
+                {semPaginasDaLp && podeCriarLp === true && (
                   <a
                     href={`${urlDoConfigurador()}/minha-conta`}
                     className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
@@ -328,7 +330,7 @@ export default function ProductsPage() {
                     <ArrowRight size={16} />
                   </a>
                 )}
-                {(podeVerLp === false || (semPaginasDaLp && podeEditarLp === false)) && (
+                {(podeVerLp === false || (semPaginasDaLp && podeCriarLp === false)) && (
                   <div className="w-full mt-2 bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
                     <Lock size={14} />
                     Sem acesso nesta empresa

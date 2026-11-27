@@ -41,7 +41,9 @@ function tenant(parcial: Partial<TenantResponse>): TenantResponse {
   return { site_url: "", site_urls: [], enabled_services: ["site"], plan_name: "Plano", status: "ATIVO", paginas: [], paginas_indisponiveis: false, ...parcial };
 }
 
-async function abrir(dados: TenantResponse, permissoesLp = ["lp.pagina.ver", "lp.rascunho.editar"], lpContratada = true) {
+const PAPEL_DONO = ["lp.pagina.ver", "lp.rascunho.editar", "lp.pagina.criar"];
+
+async function abrir(dados: TenantResponse, permissoesLp = PAPEL_DONO, lpContratada = true) {
   vi.mocked(TenantService.getMe).mockResolvedValue(dados);
   vi.mocked(AcessosService.get).mockResolvedValue(acessos(permissoesLp, lpContratada) as never);
   vi.mocked(TermsService.getStatus).mockResolvedValue({ pending: [], accepted: [] });
@@ -58,7 +60,7 @@ describe("Meus Produtos: Criar página no cartão do configurador (RF-PP-04)", (
     vi.unstubAllEnvs();
   });
 
-  it("lp contratada, sem páginas e com lp.rascunho.editar: cartão com o link Criar página para a área logada", async () => {
+  it("lp contratada, sem páginas e com lp.pagina.criar: cartão com o link Criar página para a área logada", async () => {
     await abrir(tenant({}));
 
     const link = await within(card()).findByRole("link", { name: "Criar página" });
@@ -74,7 +76,15 @@ describe("Meus Produtos: Criar página no cartão do configurador (RF-PP-04)", (
     expect(await within(card()).findByRole("link", { name: "Criar página" })).toHaveAttribute("href", "https://lp.exemplo/minha-conta");
   });
 
-  it("sem lp.rascunho.editar: o cartão diz Sem acesso nesta empresa, sem Criar página", async () => {
+  it("Editor (lp.rascunho.editar, sem lp.pagina.criar): Sem acesso nesta empresa, sem Criar página (RF-PP-04a)", async () => {
+    await abrir(tenant({}), ["lp.pagina.ver", "lp.rascunho.editar"]);
+
+    expect(await within(card()).findByText("Sem acesso nesta empresa")).toBeInTheDocument();
+    expect(within(card()).getAllByText("Sem acesso nesta empresa")).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: "Criar página" })).not.toBeInTheDocument();
+  });
+
+  it("só lp.pagina.ver: o cartão diz Sem acesso nesta empresa, sem Criar página", async () => {
     await abrir(tenant({}), ["lp.pagina.ver"]);
 
     expect(await within(card()).findByText("Sem acesso nesta empresa")).toBeInTheDocument();

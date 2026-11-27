@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { TenantService, TenantResponse, AcessosService, MeusAcessos } from "@/services/api";
+import { TenantService, TenantResponse, AcessosService, MeusAcessos, TermsService } from "@/services/api";
 import { 
   Globe, 
   Kanban, 
@@ -63,6 +63,8 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [acessosEstado, setAcessosEstado] = useState<EstadoAcessos>({ status: "carregando" });
   const [planos, setPlanos] = useState<PlanoParaTroca[] | null>(null);
+  // portal-produtos-e-criar-pagina RF-PP-03: aviso, nunca bloqueio; falha na leitura = sem aviso.
+  const [temTermoPendente, setTemTermoPendente] = useState(false);
   const requisicaoRef = useRef(0);
 
   const fetchTenant = async (tenantId?: string) => {
@@ -71,6 +73,7 @@ export default function ProductsPage() {
     setError(null);
     setAcessosEstado({ status: "carregando" });
     setPlanos(null);
+    setTemTermoPendente(false);
 
     // As leituras começam juntas; o atraso de uma empresa anterior é ignorado.
     const tenantPromise = TenantService.getMe(tenantId);
@@ -85,6 +88,16 @@ export default function ProductsPage() {
           if (requisicao === requisicaoRef.current) console.error("Erro ao ler os planos para a troca:", err);
         });
     }
+
+    // O status dos termos corre à parte: erro nele só tira o aviso (RF-PP-03).
+    void (async () => {
+      try {
+        const status = await TermsService.getStatus(tenantId);
+        if (requisicao === requisicaoRef.current) setTemTermoPendente((status?.pending?.length ?? 0) > 0);
+      } catch (err) {
+        if (requisicao === requisicaoRef.current) console.error("Erro ao ler os termos pendentes:", err);
+      }
+    })();
 
     try {
       const res = await tenantPromise;
@@ -148,6 +161,14 @@ export default function ProductsPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
+        {temTermoPendente && (
+          <div role="status" className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <p className="text-amber-900 text-sm font-bold">Você tem um termo para aceitar.</p>
+            <a href="/termos" className="text-sm font-bold text-brand-blue underline hover:brightness-110">
+              Ver termos
+            </a>
+          </div>
+        )}
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-brand-blue to-brand-purple rounded-2xl p-6 md:p-8 text-white mb-8 shadow-xl shadow-blue-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>

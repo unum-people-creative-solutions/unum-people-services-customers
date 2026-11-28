@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { TenantService, TenantResponse, AcessosService, MeusAcessos } from "@/services/api";
+import { TenantService, TenantResponse, AcessosService, MeusAcessos, TermsService } from "@/services/api";
 import { 
   Globe, 
   Kanban, 
@@ -25,9 +25,15 @@ import { upgradeQueLibera } from "@/lib/upgradeQueLibera";
 
 // RF-5A-28: o editor de cada página do configurador abre pelo slug dela.
 function editorDaPagina(slug: string): string {
-  const base = process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
-  return `${base}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
+  return `${urlDoConfigurador()}/minha-conta/editar?slug=${encodeURIComponent(slug)}`;
 }
+
+function urlDoConfigurador(): string {
+  return process.env.NEXT_PUBLIC_LP_BUILDER_URL || "https://unumpeople.app";
+}
+
+// portal-produtos-e-criar-pagina RF-PP-05: conta que ainda não pagou.
+const STATUS_AGUARDANDO_PAGAMENTO = ["AGUARDANDO_ATIVACAO", "PENDENTE_ASAAS"];
 
 type EstadoAcessos =
   | { status: "carregando" }
@@ -63,6 +69,8 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [acessosEstado, setAcessosEstado] = useState<EstadoAcessos>({ status: "carregando" });
   const [planos, setPlanos] = useState<PlanoParaTroca[] | null>(null);
+  // portal-produtos-e-criar-pagina RF-PP-03: aviso, nunca bloqueio; falha na leitura = sem aviso.
+  const [temTermoPendente, setTemTermoPendente] = useState(false);
   const requisicaoRef = useRef(0);
 
   const fetchTenant = async (tenantId?: string) => {
@@ -71,6 +79,7 @@ export default function ProductsPage() {
     setError(null);
     setAcessosEstado({ status: "carregando" });
     setPlanos(null);
+    setTemTermoPendente(false);
 
     // As leituras começam juntas; o atraso de uma empresa anterior é ignorado.
     const tenantPromise = TenantService.getMe(tenantId);
@@ -85,6 +94,16 @@ export default function ProductsPage() {
           if (requisicao === requisicaoRef.current) console.error("Erro ao ler os planos para a troca:", err);
         });
     }
+
+    // O status dos termos corre à parte: erro nele só tira o aviso (RF-PP-03).
+    void (async () => {
+      try {
+        const status = await TermsService.getStatus(tenantId);
+        if (requisicao === requisicaoRef.current) setTemTermoPendente((status?.pending?.length ?? 0) > 0);
+      } catch (err) {
+        if (requisicao === requisicaoRef.current) console.error("Erro ao ler os termos pendentes:", err);
+      }
+    })();
 
     try {
       const res = await tenantPromise;
@@ -136,11 +155,16 @@ export default function ProductsPage() {
   const podeVerBlog = temPermissao(acessosEstado, "blog", "blog.post.ver");
   const podeVerLp = temPermissao(acessosEstado, "lp", "lp.pagina.ver");
   const podeEditarLp = temPermissao(acessosEstado, "lp", "lp.rascunho.editar");
+  // RF-PP-04a: quem só edita (Editor) não cria página; o botão levaria a uma tela sem ação.
+  const podeCriarLp = temPermissao(acessosEstado, "lp", "lp.pagina.criar");
   const sites = tenant?.site_urls?.length
     ? tenant.site_urls
     : (tenant?.site_url ? [tenant.site_url] : []);
   const paginas = tenant?.paginas ?? [];
   const paginasIndisponiveis = tenant?.paginas_indisponiveis ?? false;
+  const aguardaPagamento = STATUS_AGUARDANDO_PAGAMENTO.includes(tenant?.status ?? "");
+  // RF-PP-04: ferramenta lp contratada e nenhuma página ainda: o cartão oferece "Criar página".
+  const semPaginasDaLp = podeVerLp !== null && paginas.length === 0 && !paginasIndisponiveis;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -148,6 +172,14 @@ export default function ProductsPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
+        {temTermoPendente && (
+          <div role="status" className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <p className="text-amber-900 text-sm font-bold">Você tem um termo para aceitar.</p>
+            <a href="/termos" className="text-sm font-bold text-brand-blue underline hover:brightness-110">
+              Ver termos
+            </a>
+          </div>
+        )}
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-brand-blue to-brand-purple rounded-2xl p-6 md:p-8 text-white mb-8 shadow-xl shadow-blue-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
@@ -237,7 +269,7 @@ export default function ProductsPage() {
           )}
 
           {/* Card: Configurador de páginas */}
-          {(paginas.length > 0 || paginasIndisponiveis) && (
+          {(paginas.length > 0 || paginasIndisponiveis || semPaginasDaLp) && (
             <section aria-labelledby="produto-configurador" className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition group">
               <div>
                 <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-brand-blue mb-4">
@@ -245,7 +277,9 @@ export default function ProductsPage() {
                 </div>
                 <h4 id="produto-configurador" className="text-lg font-bold text-gray-900">Configurador de páginas</h4>
                 <p className="text-sm text-gray-600 mt-2">
-                  Suas páginas montadas no configurador da Unum People, prontas para captar contatos.
+                  {paginas.length === 0 && !paginasIndisponiveis
+                    ? "Monte a página do seu negócio no configurador da Unum People."
+                    : "Suas páginas montadas no configurador da Unum People, prontas para captar contatos."}
                 </p>
               </div>
 
@@ -269,8 +303,12 @@ export default function ProductsPage() {
                           <ArrowRight size={16} />
                         </a>
                       ) : (
-                        <div className="w-full bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
-                          {pagina.aguarda_publicacao === true ? "Ainda não publicada" : "Página fora do ar"}
+                        <div className="w-full bg-gray-100 text-gray-600 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-center">
+                          {pagina.aguarda_publicacao === true
+                            ? "Ainda não publicada"
+                            : aguardaPagamento
+                              ? "Vai ao ar quando o pagamento for confirmado"
+                              : "Página fora do ar"}
                         </div>
                       )}
                       {podeEditarLp === true && (
@@ -285,7 +323,16 @@ export default function ProductsPage() {
                     </div>
                   ))}
                 </div>
-                {podeVerLp === false && (
+                {semPaginasDaLp && podeCriarLp === true && (
+                  <a
+                    href={`${urlDoConfigurador()}/minha-conta`}
+                    className="w-full bg-brand-blue text-white py-2.5 px-4 rounded-xl font-bold hover:brightness-110 transition flex items-center justify-center gap-2 text-sm shadow-sm"
+                  >
+                    Criar página
+                    <ArrowRight size={16} />
+                  </a>
+                )}
+                {(podeVerLp === false || (semPaginasDaLp && podeCriarLp === false)) && (
                   <div className="w-full mt-2 bg-gray-100 text-gray-400 border border-gray-200 py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold">
                     <Lock size={14} />
                     Sem acesso nesta empresa

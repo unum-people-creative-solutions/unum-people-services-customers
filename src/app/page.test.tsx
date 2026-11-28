@@ -8,9 +8,14 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Home Page", () => {
-  it("redireciona para /termos ao acessar a rota raiz", () => {
+  it("redireciona para /produtos ao acessar a rota raiz", () => {
     render(<Home />);
-    expect(redirect).toHaveBeenCalledWith("/termos");
+    expect(redirect).toHaveBeenCalledWith("/produtos");
+  });
+
+  it("outra query, sem return_to, também vai para /produtos", () => {
+    render(<Home searchParams={{ tenant_id: "t-2", utm_source: "ads" }} />);
+    expect(redirect).toHaveBeenLastCalledWith("/produtos");
   });
 
   it("preserva return_to e tenant_id ao redirecionar para /termos", () => {
